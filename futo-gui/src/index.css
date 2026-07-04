@@ -1,0 +1,33 @@
+@import "tailwindcss";
+
+@theme {
+  --color-futou-bg: #f5f4f1;
+  --color-futou-surface: #ffffff;
+  --color-futou-muted: #f0efeb;
+  --color-futou-border: #e2e0d9;
+  --color-futou-border-strong: #cfccc2;
+  --color-futou-text: #1f1e1c;
+  --color-futou-text-secondary: #6b6a63;
+  --color-futou-text-muted: #9c9a91;
+  --color-futou-accent: #185fa5;
+  --color-futou-accent-bg: #e6f1fb;
+  --color-futou-success: #0f6e56;
+  --color-futou-success-bg: #e1f5ee;
+  --color-futou-danger: #993c1d;
+  --color-futou-danger-bg: #faece7;
+}
+
+body {
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-futou-bg);
+  color: var(--color-futou-text);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
