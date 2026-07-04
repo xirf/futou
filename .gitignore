@@ -1,4 +1,31 @@
-target/
+# Build artifacts
+/target/
 node_modules/
 dist/
+
+# Binaries
+*.exe
 *.pdb
+*.dll
+*.so
+*.dylib
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+*.log
+
+# Temp
+*.tmp
+*.rs.bk
