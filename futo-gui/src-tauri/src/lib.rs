@@ -2,9 +2,47 @@ use futou_ipc::messages::RpcRequest;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::windows::named_pipe::ClientOptions;
 
+fn start_daemon() {
+    let Some(dir) = std::env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.to_path_buf()))
+    else { return };
+
+    let names = [
+        "futou-daemon.exe",
+        "futou-daemon-x86_64-pc-windows-msvc.exe",
+    ];
+    for name in &names {
+        let path = dir.join(name);
+        if path.exists() {
+            let mut cmd = std::process::Command::new(&path);
+            #[cfg(target_os = "windows")]
+            {
+                use std::os::windows::process::CommandExt;
+                cmd.creation_flags(0x08000000);
+            }
+            cmd.stdout(std::process::Stdio::null());
+            cmd.stderr(std::process::Stdio::null());
+            let _ = cmd.spawn();
+            return;
+        }
+    }
+}
+
 #[tauri::command]
 async fn daemon_status() -> Result<String, String> {
     send_rpc("daemon.status", None).await
+}
+
+#[tauri::command]
+fn daemon_start() -> Result<(), String> {
+    start_daemon();
+    Ok(())
+}
+
+#[tauri::command]
+async fn daemon_shutdown() -> Result<String, String> {
+    send_rpc("daemon.shutdown", None).await
 }
 
 #[tauri::command]
@@ -143,6 +181,7 @@ async fn send_rpc(method: &str, params: Option<serde_json::Value>) -> Result<Str
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
+            start_daemon();
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -154,6 +193,8 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             daemon_status,
+            daemon_start,
+            daemon_shutdown,
             runtime_list,
             runtime_install,
             runtime_install_status,

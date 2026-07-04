@@ -15,6 +15,7 @@ function App() {
   const [modalOpen, setModalOpen] = useState(false);
   const [selectedLog, setSelectedLog] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
+  const [daemonRunning, setDaemonRunning] = useState(false);
 
   const onInstallDone = useCallback(() => {
     setModalOpen(false);
@@ -23,10 +24,41 @@ function App() {
 
   const { installing, progress, startInstall } = useInstall(onInstallDone);
 
+  async function checkDaemon() {
+    try {
+      await invoke("daemon_status");
+      setDaemonRunning(true);
+    } catch {
+      setDaemonRunning(false);
+    }
+  }
+
+  async function toggleDaemon() {
+    if (daemonRunning) {
+      try { await invoke("daemon_shutdown"); } catch { /* gone already */ }
+    } else {
+      await invoke("daemon_start");
+      // Wait for daemon to start, then retry connection
+      for (let i = 0; i < 10; i++) {
+        await new Promise((r) => setTimeout(r, 400));
+        try { await invoke("daemon_status"); setDaemonRunning(true); return; } catch { /* still starting */ }
+      }
+      alert("Daemon gagal start");
+    }
+    await new Promise((r) => setTimeout(r, 500));
+    checkDaemon();
+  }
+
   useEffect(() => {
     fetchRuntimes();
     fetchCatalogue();
+    checkDaemon();
   }, [fetchRuntimes, fetchCatalogue]);
+
+  useEffect(() => {
+    const interval = setInterval(checkDaemon, 5000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     function handleClick(e: MouseEvent) {
@@ -48,7 +80,13 @@ function App() {
 
   return (
     <div className="max-w-[760px] mx-auto px-5 pb-[60px] pt-6">
-      <Header count={runtimes.length} activeCount={activeCount} onAdd={() => setModalOpen(true)} />
+      <Header
+        count={runtimes.length}
+        activeCount={activeCount}
+        daemonRunning={daemonRunning}
+        onAdd={() => setModalOpen(true)}
+        onToggleDaemon={toggleDaemon}
+      />
 
       <ServiceList
         runtimes={runtimes}
