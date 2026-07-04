@@ -26,7 +26,5 @@ Thumbs.db
 .env.local
 *.log
 
-# Temp
-*.tmp
-*.rs.bk
-*.tsbuildinfo
+# Tauri build intermediates
+futo-gui/src-tauri/bin/

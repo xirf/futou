@@ -4,7 +4,7 @@
   "version": "0.1.0",
   "identifier": "id.andka.futou",
   "build": {
-    "beforeBuildCommand": "cargo build --release -p futou-daemon --manifest-path ../Cargo.toml && bun run build",
+    "beforeBuildCommand": "cargo build --release -p futou-daemon --manifest-path ../Cargo.toml && mkdir src-tauri\\bin 2>nul & copy /Y ..\\target\\release\\futou-daemon.exe src-tauri\\bin\\futou-daemon-x86_64-pc-windows-msvc.exe && bun run build",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },
@@ -32,9 +32,9 @@
       "assets/icons/icon.icns",
       "assets/icons/icon.ico"
     ],
-    "resources": {
-      "../../target/release/futou-daemon.exe": "bin/"
-    },
+    "externalBin": [
+      "bin/futou-daemon"
+    ],
     "windows": {
       "nsis": {
         "installMode": "currentUser"
