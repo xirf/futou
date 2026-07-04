@@ -1,0 +1,243 @@
+use std::path::PathBuf;
+use std::process::Command;
+use std::sync::Arc;
+
+use futou_core::ports::catalogue_source::CatalogueSource;
+use futou_core::ports::downloader::Downloader;
+use futou_core::ports::extractor::Extractor;
+use futou_core::ports::path_manager::PathManager;
+use futou_core::ports::process_manager::ProcessManager;
+use futou_core::ports::runtime_repo::RuntimeRepository;
+use futou_core::ports::shim_manager::ShimManager;
+use futou_core::service::activation_service::ActivationService;
+use futou_core::service::catalogue_service::CatalogueService;
+use futou_core::service::env_service::EnvService;
+use futou_core::service::install_service::InstallService;
+
+use std::env;
+use tracing::warn;
+use crate::adapters::aria2_downloader::Aria2Downloader;
+use crate::adapters::async_extractor::AsyncExtractor;
+use crate::adapters::null_downloader::NullDownloader;
+use crate::adapters::fs_repository::FsRepository;
+use crate::adapters::path_manager_win::WindowsPathManager;
+use crate::adapters::process_manager_win::WindowsProcessManager;
+use crate::adapters::remote_catalogue::RemoteCatalogueSource;
+use crate::adapters::shim_manager_win::WindowsShimManager;
+use crate::operation_log::OperationLog;
+
+pub struct AppContext {
+    pub catalogue_service: CatalogueService,
+    pub install_service: InstallService,
+    pub activation_service: ActivationService,
+    pub env_service: EnvService,
+    pub downloader: Arc<dyn Downloader>,
+    pub shutdown_tx: tokio::sync::broadcast::Sender<()>,
+    pub download_progress: std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, futou_ipc::messages::InstallProgress>>>,
+    pub operation_log: std::sync::Arc<OperationLog>,
+}
+
+async fn resolve_aria2c(data_dir: &PathBuf) -> PathBuf {
+    let bundled = env::current_exe()
+        .ok()
+        .and_then(|p| p.parent().map(|d| d.join("aria2c")))
+        .filter(|p| p.exists());
+
+    if let Some(p) = bundled {
+        warn!("aria2c bundled with binary at {:?}", p);
+        return p;
+    }
+
+    if let Ok(p) = which::which("aria2c") {
+        warn!("aria2c found in PATH at {:?}", p);
+        return PathBuf::from("aria2c");
+    }
+
+    let data_aria2 = data_dir.join("aria2").join("aria2c.exe");
+    if data_aria2.exists() {
+        warn!("aria2c found in data dir at {:?}", data_aria2);
+        return data_aria2;
+    }
+
+    warn!("aria2c not found anywhere. Downloading from GitHub...");
+    let download_url = "https://github.com/aria2/aria2/releases/download/release-1.37.0/aria2-1.37.0-win-64bit-build1.zip";
+    let zip_path = data_dir.join("aria2").join("aria2.zip");
+
+    let _ = tokio::fs::create_dir_all(data_dir.join("aria2")).await;
+    match download_aria2(download_url, &zip_path).await {
+        Ok(()) => {
+            if let Ok(_) = extract_zip(&zip_path, &data_dir.join("aria2")) {
+                let _ = tokio::fs::remove_file(&zip_path).await;
+                let exe = find_aria2_exe(&data_dir.join("aria2"));
+                if let Some(p) = exe {
+                    let _ = tokio::fs::copy(&p, &data_aria2).await;
+                    warn!("aria2c downloaded to {:?}", data_aria2);
+                    return data_aria2;
+                }
+            }
+        }
+        Err(e) => warn!("Failed to download aria2c: {}", e),
+    }
+
+    PathBuf::from("aria2c")
+}
+
+async fn download_aria2(url: &str, dest: &PathBuf) -> Result<(), String> {
+    let resp = reqwest::get(url)
+        .await
+        .map_err(|e| format!("HTTP error: {}", e))?;
+    let bytes = resp.bytes()
+        .await
+        .map_err(|e| format!("Read error: {}", e))?;
+    tokio::fs::write(dest, &bytes)
+        .await
+        .map_err(|e| format!("Write error: {}", e))?;
+    Ok(())
+}
+
+fn extract_zip(zip_path: &PathBuf, out_dir: &PathBuf) -> Result<(), String> {
+    let file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
+    let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
+
+    for i in 0..archive.len() {
+        let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
+        let Some(path) = entry.enclosed_name() else { continue };
+        let target = out_dir.join(path);
+
+        if entry.is_dir() {
+            let _ = std::fs::create_dir_all(&target);
+        } else {
+            let _ = std::fs::create_dir_all(target.parent().unwrap());
+            let mut out = std::fs::File::create(&target).map_err(|e| e.to_string())?;
+            std::io::copy(&mut entry, &mut out).map_err(|e| e.to_string())?;
+        }
+    }
+
+    Ok(())
+}
+
+fn find_aria2_exe(dir: &PathBuf) -> Option<PathBuf> {
+    for entry in std::fs::read_dir(dir).ok()? {
+        let entry = entry.ok()?;
+        if entry.file_type().map(|t| t.is_dir()).unwrap_or(false) {
+            let inner = entry.path().join("aria2c.exe");
+            if inner.exists() {
+                return Some(inner);
+            }
+            // recurse one level
+            if let Some(found) = find_aria2_exe(&entry.path()) {
+                return Some(found);
+            }
+        }
+        if entry.file_name().to_string_lossy() == "aria2c.exe" {
+            return Some(entry.path());
+        }
+    }
+    None
+}
+
+async fn cleanup_old_aria2(pid_path: &PathBuf) {
+    if let Ok(pid_str) = tokio::fs::read_to_string(pid_path).await {
+        if let Ok(pid) = pid_str.trim().parse::<u32>() {
+            let _ = Command::new("taskkill")
+                .args(["/F", "/PID", &pid.to_string()])
+                .output();
+        }
+    }
+    let _ = std::fs::remove_file(pid_path);
+}
+
+pub async fn build_composition_root(data_dir: &PathBuf) -> anyhow::Result<AppContext> {
+    let runtimes_dir = data_dir.join("runtimes");
+    let download_dir = data_dir.join("aria2").join("downloads");
+    let cache_dir = data_dir.join("catalogue");
+    let shim_dir = data_dir.join("shims");
+
+    tokio::fs::create_dir_all(&runtimes_dir).await?;
+    tokio::fs::create_dir_all(&download_dir).await?;
+    tokio::fs::create_dir_all(&cache_dir).await?;
+    tokio::fs::create_dir_all(&shim_dir).await?;
+
+    let state_path = data_dir.join("state.json");
+    let repository = Arc::new(FsRepository::new(state_path));
+
+    let bundled = include_str!("../resources/bundle.json");
+    let bundle_path = data_dir.join("catalogue").join("bundle.json");
+    if let Some(parent) = bundle_path.parent() {
+        let _ = tokio::fs::create_dir_all(parent).await;
+    }
+    let _ = tokio::fs::write(&bundle_path, bundled).await;
+
+    let remote_url = "https://raw.githubusercontent.com/user/futou-catalogue/main/catalogue.json".to_string();
+    let catalogue_source: Arc<dyn CatalogueSource> = Arc::new(
+        RemoteCatalogueSource::new(remote_url, cache_dir, data_dir.join("catalogue")),
+    );
+
+    let aria2_path = resolve_aria2c(data_dir).await;
+
+    let aria2_pid_path = data_dir.join("aria2").join("aria2.pid");
+    cleanup_old_aria2(&aria2_pid_path).await;
+
+    let downloader: Arc<dyn Downloader> = match Aria2Downloader::spawn(&aria2_path, &download_dir, &aria2_pid_path).await {
+        Ok(d) => {
+            warn!("aria2 RPC downloader ready (path: {:?})", aria2_path);
+            Arc::new(d)
+        }
+        Err(e) => {
+            warn!("aria2c not found ({}). Install aria2 to enable downloads.", e);
+            Arc::new(NullDownloader)
+        }
+    };
+
+    let extractor: Arc<dyn Extractor> = Arc::new(AsyncExtractor);
+
+    let shim_manager: Arc<dyn ShimManager> = Arc::new(WindowsShimManager::new(shim_dir));
+    let path_manager: Arc<dyn PathManager> = Arc::new(WindowsPathManager::new());
+    let process_manager: Arc<dyn ProcessManager> = Arc::new(WindowsProcessManager);
+
+    let catalogue_service = CatalogueService::new(catalogue_source.clone());
+    let install_service = InstallService::new(
+        downloader.clone(),
+        extractor,
+        repository.clone(),
+        catalogue_source,
+        runtimes_dir,
+    );
+    let activation_service = ActivationService::new(
+        repository.clone(),
+        shim_manager,
+        path_manager,
+        process_manager,
+    );
+
+    // Kill orphaned server processes from a previous daemon run
+    if let Ok(state) = repository.load().await {
+        for (_runtime, pid) in &state.pids {
+            let _ = std::process::Command::new("taskkill")
+                .args(["/F", "/PID", &pid.to_string()])
+                .stdout(std::process::Stdio::null())
+                .stderr(std::process::Stdio::null())
+                .output();
+        }
+        if !state.pids.is_empty() {
+            let mut state = state;
+            state.pids.clear();
+            let _ = repository.save(&state).await;
+        }
+    }
+
+    let env_service = EnvService::new(repository);
+
+    let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
+
+    Ok(AppContext {
+        catalogue_service,
+        install_service,
+        activation_service,
+        env_service,
+        downloader,
+        shutdown_tx,
+        download_progress: std::sync::Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        operation_log: std::sync::Arc::new(OperationLog::new()),
+    })
+}

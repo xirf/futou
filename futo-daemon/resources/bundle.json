@@ -1,0 +1,118 @@
+{
+  "runtimes": {
+    "php": {
+      "display_name": "PHP",
+      "description": "PHP: Hypertext Preprocessor",
+      "versions": {
+        "8.4.23": {
+          "url": {
+            "windows-amd64": "https://downloads.php.net/~windows/releases/php-8.4.23-nts-Win32-vs17-x64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": null
+        },
+        "8.3.32": {
+          "url": {
+            "windows-amd64": "https://downloads.php.net/~windows/releases/php-8.3.32-nts-Win32-vs16-x64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": null
+        },
+        "8.2.32": {
+          "url": {
+            "windows-amd64": "https://downloads.php.net/~windows/releases/php-8.2.32-nts-Win32-vs16-x64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": null
+        }
+      }
+    },
+    "nodejs": {
+      "display_name": "Node.js",
+      "description": "JavaScript runtime built on V8",
+      "versions": {
+        "22.23.1": {
+          "url": {
+            "windows-amd64": "https://nodejs.org/dist/v22.23.1/node-v22.23.1-win-x64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "node-v22.23.1-win-x64"
+        },
+        "20.20.2": {
+          "url": {
+            "windows-amd64": "https://nodejs.org/dist/v20.20.2/node-v20.20.2-win-x64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "node-v20.20.2-win-x64"
+        }
+      }
+    },
+    "mariadb": {
+      "display_name": "MariaDB",
+      "description": "MariaDB database server",
+      "versions": {
+        "11.4.5": {
+          "url": {
+            "windows-amd64": "https://archive.mariadb.org/mariadb-11.4.5/winx64-packages/mariadb-11.4.5-winx64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "mariadb-11.4.5-winx64/bin"
+        },
+        "10.11.11": {
+          "url": {
+            "windows-amd64": "https://archive.mariadb.org/mariadb-10.11.11/winx64-packages/mariadb-10.11.11-winx64.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "mariadb-10.11.11-winx64/bin"
+        }
+      }
+    },
+    "postgresql": {
+      "display_name": "PostgreSQL",
+      "description": "PostgreSQL database server",
+      "versions": {
+        "17.2": {
+          "url": {
+            "windows-amd64": "https://get.enterprisedb.com/postgresql/postgresql-17.2-1-windows-x64-binaries.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "pgsql\\bin"
+        },
+        "16.6": {
+          "url": {
+            "windows-amd64": "https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64-binaries.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "pgsql\\bin"
+        }
+      }
+    }
+  }
+}

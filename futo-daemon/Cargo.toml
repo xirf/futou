@@ -1,0 +1,27 @@
+[package]
+name = "futou-daemon"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+futou-ipc = { path = "../futo-ipc" }
+futou-core = { path = "../futo-core" }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+tokio = { version = "1", features = ["full"] }
+reqwest = { version = "0.12", features = ["json"] }
+tray-icon = "0.19"
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+zip = "2"
+tar = "0.4"
+flate2 = "1"
+sha2 = "0.10"
+winreg = "0.54"
+anyhow = "1"
+dirs = "6"
+chrono = "0.4"
+uuid = { version = "1", features = ["v4"] }
+async-trait = "0.1"
+windows-sys = { version = "0.59", features = ["Win32_UI_WindowsAndMessaging"] }
+which = "8.0.4"
