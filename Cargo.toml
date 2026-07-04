@@ -1,0 +1,8 @@
+[workspace]
+resolver = "2"
+members = [
+    "futo-ipc",
+    "futo-core",
+    "futo-daemon",
+    "futo-cli",
+]
