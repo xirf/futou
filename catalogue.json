@@ -165,6 +165,58 @@
           "bin_dir": null
         }
       }
+    },
+    "apache": {
+      "display_name": "Apache",
+      "description": "Apache HTTP Server (Apache Lounge)",
+      "versions": {
+        "2.4.63": {
+          "url": {
+            "windows-amd64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.63-250407-win64-VS17.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "Apache24/bin"
+        },
+        "2.4.62": {
+          "url": {
+            "windows-amd64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.62-240717-win64-VS17.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "Apache24/bin"
+        }
+      }
+    },
+    "nginx": {
+      "display_name": "Nginx",
+      "description": "Nginx HTTP and reverse proxy server",
+      "versions": {
+        "1.27.4": {
+          "url": {
+            "windows-amd64": "https://nginx.org/download/nginx-1.27.4.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "nginx-1.27.4"
+        },
+        "1.26.3": {
+          "url": {
+            "windows-amd64": "https://nginx.org/download/nginx-1.26.3.zip"
+          },
+          "checksum": {
+            "windows-amd64": ""
+          },
+          "archive_type": "zip",
+          "bin_dir": "nginx-1.26.3"
+        }
+      }
     }
   }
 }
