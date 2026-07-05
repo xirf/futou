@@ -249,6 +249,15 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
 
     let (shutdown_tx, _) = tokio::sync::broadcast::channel(1);
 
+    let operation_log = std::sync::Arc::new(OperationLog::new());
+    if !aria2_available {
+        operation_log.push(
+            "system",
+            "error",
+            "aria2c not found — installs will fail until aria2 is installed".into(),
+        );
+    }
+
     Ok(AppContext {
         catalogue_service,
         install_service,
@@ -259,7 +268,7 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
         download_progress: std::sync::Arc::new(std::sync::RwLock::new(
             std::collections::HashMap::new(),
         )),
-        operation_log: std::sync::Arc::new(OperationLog::new()),
+        operation_log,
         started_at: Instant::now(),
         aria2_available,
     })

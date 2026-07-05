@@ -4,8 +4,8 @@ mod pipe_client;
 
 use clap::{Parser, Subcommand};
 use futou_ipc::messages::{
-    ActivateParams, CatalogueListResult, DeactivateParams, InstallParams, ProgressParams,
-    RuntimeListResult, UninstallParams,
+    ActivateParams, CatalogueListResult, DeactivateParams, InstallParams, RuntimeListResult,
+    UninstallParams,
 };
 use pipe_client::PipeClient;
 
@@ -84,37 +84,45 @@ async fn cmd_list() -> Result<String, String> {
 
 async fn cmd_install(runtime: &str, version: &str) -> Result<String, String> {
     let mut client = connect().await?;
-    let mut notif_rx = client.notification_receiver();
-
     let params = serde_json::to_value(InstallParams {
         runtime: runtime.to_string(),
         version: version.to_string(),
     })
     .unwrap();
 
-    let send = client.send_request("runtime.install", Some(params));
-    let recv = notif_rx.recv();
-
-    tokio::pin!(send);
-    tokio::pin!(recv);
+    let result = client.send_request("runtime.install", Some(params)).await?;
+    let task_id = result
+        .get("task_id")
+        .and_then(|t| t.as_str())
+        .ok_or("No task_id in response")?
+        .to_string();
 
     loop {
-        tokio::select! {
-            result = &mut send => {
-                let _ = result?;
+        tokio::time::sleep(std::time::Duration::from_millis(600)).await;
+
+        let status_params = serde_json::json!({ "task_id": task_id });
+        let status = client
+            .send_request("runtime.install.status", Some(status_params))
+            .await?;
+
+        let stage = status.get("stage").and_then(|s| s.as_str()).unwrap_or("");
+        let progress = status.get("progress").and_then(|p| p.as_u64()).unwrap_or(0);
+        let message = status.get("message").and_then(|m| m.as_str()).unwrap_or("");
+
+        print!("\r{} {:.0}%", message, progress);
+        use std::io::Write;
+        std::io::stdout().flush().ok();
+
+        match stage {
+            "completed" => {
+                println!();
                 return Ok(format!("{} {} installed successfully", runtime, version));
             }
-            notif = &mut recv => {
-                if let Ok(notification) = notif {
-                    if let Some(params) = notification.params {
-                        if let Ok(p) = serde_json::from_value::<ProgressParams>(params) {
-                            print!("\r{} {:.1}%", p.message, p.progress * 100.0);
-                            use std::io::Write;
-                            std::io::stdout().flush().ok();
-                        }
-                    }
-                }
+            "failed" => {
+                println!();
+                return Err(message.to_string());
             }
+            _ => {}
         }
     }
 }

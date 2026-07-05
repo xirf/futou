@@ -35,25 +35,26 @@ impl ActivationService {
         runtime: &RuntimeName,
         version: &Version,
     ) -> Result<(), ActivationError> {
-        let mut state = self.repository.load().await?;
+        let bin_dir = {
+            let state = self.repository.load().await?;
+            let installation = state
+                .find_installation(runtime, version)
+                .ok_or_else(|| {
+                    ActivationError::NotInstalled(runtime.to_string(), version.to_string())
+                })?
+                .clone();
+            PathBuf::from(&installation.path)
+        };
 
-        let installation = state
-            .find_installation(runtime, version)
-            .ok_or_else(|| ActivationError::NotInstalled(runtime.to_string(), version.to_string()))?
-            .clone();
-
-        let bin_dir = PathBuf::from(&installation.path);
         info!(
-            "activate: runtime={} version={} bin_dir={:?} exists={}",
-            runtime,
-            version,
-            bin_dir,
-            bin_dir.exists()
+            "activate: runtime={} version={} bin_dir={:?}",
+            runtime, version, bin_dir
         );
         self.shim_manager
             .create_shims(&runtime.0, &version.0, &bin_dir)
             .await?;
 
+        let mut state = self.repository.load().await?;
         state.set_active(runtime, version);
         if let Some(inst) = state.find_installation_mut(runtime, version) {
             inst.status = InstallStatus::Active;
@@ -74,17 +75,15 @@ impl ActivationService {
     }
 
     pub async fn deactivate(&self, runtime: &RuntimeName) -> Result<(), ActivationError> {
-        let mut state = self.repository.load().await?;
-
         self.shim_manager.remove_shims(&runtime.0).await?;
 
+        let mut state = self.repository.load().await?;
         if let Some(version_str) = state.active_version(runtime).map(|s| s.to_string()) {
             let version = Version(version_str);
             if let Some(inst) = state.find_installation_mut(runtime, &version) {
                 inst.status = InstallStatus::Installed;
             }
         }
-
         state.remove_active(runtime);
         self.repository.save(&state).await?;
 

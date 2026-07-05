@@ -22,6 +22,22 @@ fn data_initialized(data_dir: &Path) -> bool {
             || data_dir.join("PG_VERSION").exists())
 }
 
+fn process_alive(pid: u32) -> bool {
+    if pid == 0 {
+        return false;
+    }
+    let output = SyncCommand::new("tasklist")
+        .args(["/FI", &format!("PID eq {}", pid), "/NH"])
+        .output();
+    match output {
+        Ok(o) => {
+            let stdout = String::from_utf8_lossy(&o.stdout);
+            stdout.contains(&pid.to_string())
+        }
+        Err(_) => false,
+    }
+}
+
 fn write_config(dir: &Path, name: &str, content: &str) -> Result<(), ProcessError> {
     let _ = std::fs::create_dir_all(dir);
     std::fs::write(dir.join(name), content)
@@ -121,6 +137,24 @@ http {{
     write_config(conf_dir, "nginx.conf", &conf)
 }
 
+fn validate_doc_root<'a>(path: Option<&'a Path>, runtime: &str) -> Result<&'a Path, ProcessError> {
+    let path =
+        path.ok_or_else(|| ProcessError::Io(format!("document_root is required for {}", runtime)))?;
+    if !path.exists() {
+        return Err(ProcessError::Io(format!(
+            "Document root does not exist: {}",
+            path.display()
+        )));
+    }
+    if !path.is_dir() {
+        return Err(ProcessError::Io(format!(
+            "Document root is not a directory: {}",
+            path.display()
+        )));
+    }
+    Ok(path)
+}
+
 #[async_trait::async_trait]
 impl ProcessManager for WindowsProcessManager {
     async fn start_server(
@@ -149,7 +183,15 @@ impl ProcessManager for WindowsProcessManager {
                     .spawn()
                     .map_err(|e| ProcessError::Io(format!("spawn mariadbd: {}", e)))?;
 
-                Ok(child.id().unwrap_or(0))
+                let pid = child.id().unwrap_or(0);
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                if !process_alive(pid) {
+                    return Err(ProcessError::ExitError(format!(
+                        "MariaDB exited immediately after start (pid {})",
+                        pid
+                    )));
+                }
+                Ok(pid)
             }
             "postgresql" => {
                 let port = Self::default_port(runtime).unwrap_or(5432);
@@ -178,12 +220,18 @@ impl ProcessManager for WindowsProcessManager {
                     .spawn()
                     .map_err(|e| ProcessError::Io(format!("spawn pg_ctl: {}", e)))?;
 
-                Ok(child.id().unwrap_or(0))
+                let pid = child.id().unwrap_or(0);
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                if !process_alive(pid) {
+                    return Err(ProcessError::ExitError(format!(
+                        "PostgreSQL pg_ctl exited immediately after start (pid {})",
+                        pid
+                    )));
+                }
+                Ok(pid)
             }
             "apache" => {
-                let doc_root = document_root.ok_or_else(|| {
-                    ProcessError::Io("document_root is required for Apache".into())
-                })?;
+                let doc_root = validate_doc_root(document_root, "Apache")?;
                 let conf_dir = data_dir.join("conf");
                 generate_apache_config(bin_dir, &conf_dir, doc_root)?;
 
@@ -210,12 +258,19 @@ impl ProcessManager for WindowsProcessManager {
                     .spawn()
                     .map_err(|e| ProcessError::Io(format!("spawn httpd: {}", e)))?;
 
-                Ok(child.id().unwrap_or(0))
+                let pid = child.id().unwrap_or(0);
+                tokio::time::sleep(std::time::Duration::from_millis(800)).await;
+                if !process_alive(pid) {
+                    return Err(ProcessError::ExitError(format!(
+                        "Apache exited immediately after start (pid {}). Check config at {:?}",
+                        pid,
+                        conf_dir.join("httpd.conf")
+                    )));
+                }
+                Ok(pid)
             }
             "nginx" => {
-                let doc_root = document_root.ok_or_else(|| {
-                    ProcessError::Io("document_root is required for Nginx".into())
-                })?;
+                let doc_root = validate_doc_root(document_root, "Nginx")?;
                 let conf_dir = data_dir.join("conf");
                 let _ = std::fs::create_dir_all(data_dir.join("logs"));
                 generate_nginx_config(&conf_dir, doc_root)?;
@@ -243,7 +298,16 @@ impl ProcessManager for WindowsProcessManager {
                     .spawn()
                     .map_err(|e| ProcessError::Io(format!("spawn nginx: {}", e)))?;
 
-                Ok(child.id().unwrap_or(0))
+                let pid = child.id().unwrap_or(0);
+                tokio::time::sleep(std::time::Duration::from_millis(500)).await;
+                if !process_alive(pid) {
+                    return Err(ProcessError::ExitError(format!(
+                        "Nginx exited immediately after start (pid {}). Check config at {:?}",
+                        pid,
+                        conf_dir.join("nginx.conf")
+                    )));
+                }
+                Ok(pid)
             }
             _ => Err(ProcessError::NotServer(runtime.to_string())),
         }

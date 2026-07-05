@@ -1,7 +1,6 @@
-use futou_ipc::messages::{RpcNotification, RpcRequest};
+use futou_ipc::messages::RpcRequest;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::windows::named_pipe::ClientOptions;
-use tokio::sync::broadcast;
 
 const RPC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
 
@@ -9,7 +8,6 @@ pub struct PipeClient {
     writer: tokio::io::WriteHalf<tokio::net::windows::named_pipe::NamedPipeClient>,
     reader: BufReader<tokio::io::ReadHalf<tokio::net::windows::named_pipe::NamedPipeClient>>,
     next_id: u64,
-    notification_tx: broadcast::Sender<RpcNotification>,
 }
 
 impl PipeClient {
@@ -20,18 +18,12 @@ impl PipeClient {
             .map_err(|e| format!("Failed to connect to daemon: {}. Is the daemon running?", e))?;
 
         let (reader, writer) = tokio::io::split(client);
-        let (notification_tx, _) = broadcast::channel(256);
 
         Ok(Self {
             writer,
             reader: BufReader::new(reader),
             next_id: 1,
-            notification_tx,
         })
-    }
-
-    pub fn notification_receiver(&self) -> broadcast::Receiver<RpcNotification> {
-        self.notification_tx.subscribe()
     }
 
     pub async fn send_request(
@@ -76,13 +68,6 @@ impl PipeClient {
 
             let msg: serde_json::Value =
                 serde_json::from_str(trimmed).map_err(|e| format!("Parse error: {}", e))?;
-
-            if msg.get("method").and_then(|m| m.as_str()) == Some("progress") {
-                if let Ok(notification) = serde_json::from_value::<RpcNotification>(msg) {
-                    let _ = self.notification_tx.send(notification);
-                }
-                continue;
-            }
 
             if msg.get("id").and_then(|i| i.as_u64()) == Some(id) {
                 if let Some(error) = msg.get("error") {
