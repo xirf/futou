@@ -8,7 +8,7 @@ import { runtimesSidebar } from './sidebars/runtimesSidebar';
 export default defineConfig({
   title: 'Futou',
   description: 'Windows Environment Manager — install, activate, and manage runtimes',
-  outDir: './dist',
+  outDir: '../dist',
   lastUpdated: true,
   ignoreDeadLinks: false,
   lang: 'en-US',
