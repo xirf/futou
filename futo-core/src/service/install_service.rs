@@ -180,3 +180,69 @@ pub enum InstallError {
     #[error("IO error: {0}")]
     Io(String),
 }
+
+#[cfg(test)]
+mod tests {
+    use super::verify_checksum;
+    use std::io::Write;
+    use std::sync::atomic::{AtomicU32, Ordering};
+
+    static COUNTER: AtomicU32 = AtomicU32::new(0);
+
+    fn write_temp(content: &[u8]) -> std::path::PathBuf {
+        let n = COUNTER.fetch_add(1, Ordering::Relaxed);
+        let dir = std::env::temp_dir();
+        let path = dir.join(format!("futou_test_checksum_{}_{}", std::process::id(), n));
+        let mut f = std::fs::File::create(&path).unwrap();
+        f.write_all(content).unwrap();
+        path
+    }
+
+    #[test]
+    fn verify_matching_checksum_passes() {
+        // SHA-256 of "hello world\n"
+        let content = b"hello world\n";
+        let expected = "a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447";
+        let path = write_temp(content);
+        assert!(verify_checksum(&path, expected).is_ok());
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn verify_wrong_checksum_fails() {
+        let content = b"hello world\n";
+        let path = write_temp(content);
+        let result = verify_checksum(
+            &path,
+            "0000000000000000000000000000000000000000000000000000000000000000",
+        );
+        assert!(result.is_err());
+        assert!(result.unwrap_err().contains("expected"));
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn verify_strips_sha256_prefix() {
+        let content = b"hello world\n";
+        let expected_with_prefix =
+            "sha256:a948904f2f0f479b8f8197694b30184b0d2ed1c1cd2a1ec0fb85d299a192a447";
+        let path = write_temp(content);
+        assert!(verify_checksum(&path, expected_with_prefix).is_ok());
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn verify_empty_file() {
+        // SHA-256 of empty
+        let expected = "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855";
+        let path = write_temp(b"");
+        assert!(verify_checksum(&path, expected).is_ok());
+        std::fs::remove_file(&path).ok();
+    }
+
+    #[test]
+    fn verify_nonexistent_file_errors() {
+        let result = verify_checksum(std::path::Path::new("nonexistent_file_xyz.abc"), "abc");
+        assert!(result.is_err());
+    }
+}
