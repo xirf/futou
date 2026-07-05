@@ -32,3 +32,7 @@ futo-gui/src-tauri/bin/
 # Generated
 *.tsbuildinfo
 tsconfig.tsbuildinfo
+
+docs/.vitepress/cache/
+docs/.vitepress/dist/
+docs/node_modules/
