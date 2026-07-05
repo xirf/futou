@@ -39,14 +39,14 @@ export function Header({
         <button
           onClick={onSettings}
           title={t("app.settings")}
-          className="p-1.5 rounded-lg hover:bg-futou-muted cursor-pointer active:scale-95"
+          className="no-drag p-1.5 rounded-lg hover:bg-futou-muted cursor-pointer active:scale-95"
         >
           <Settings size={18} />
         </button>
         <button
           onClick={onToggleDaemon}
           title={daemonRunning ? "Stop daemon" : "Start daemon"}
-          className={`inline-flex items-center gap-1 leading-none whitespace-nowrap font-sans text-[13px] border rounded-lg px-2.5 py-1.5 cursor-pointer active:scale-[0.98] ${
+          className={`no-drag inline-flex items-center gap-1 leading-none whitespace-nowrap font-sans text-[13px] border rounded-lg px-2.5 py-1.5 cursor-pointer active:scale-[0.98] ${
             daemonRunning
               ? "bg-futou-success-bg border-futou-success text-futou-success hover:bg-futou-success hover:text-white"
               : "bg-futou-danger-bg border-futou-danger text-futou-danger hover:bg-futou-danger hover:text-white"
@@ -56,7 +56,7 @@ export function Header({
         </button>
         <button
           onClick={onAdd}
-          className="inline-flex items-center gap-1.5 leading-none whitespace-nowrap font-sans text-[13px] bg-futou-text text-white border border-futou-text rounded-lg px-3 py-1.5 cursor-pointer active:scale-[0.98]"
+          className="no-drag inline-flex items-center gap-1.5 leading-none whitespace-nowrap font-sans text-[13px] bg-futou-text text-white border border-futou-text rounded-lg px-3 py-1.5 cursor-pointer active:scale-[0.98]"
         >
           <Plus size={16} />
           {t("app.add")}

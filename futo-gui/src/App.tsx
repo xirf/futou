@@ -9,6 +9,7 @@ import { ServiceList } from "./components/ServiceList";
 import { LogPanel } from "./components/LogPanel";
 import { AddServiceModal } from "./components/AddServiceModal";
 import { SettingsPanel } from "./components/SettingsPanel";
+import { WindowControls } from "./components/WindowControls";
 
 function App() {
   const { runtimes, fetchRuntimes } = useRuntimes();
@@ -90,7 +91,12 @@ function App() {
 
   if (showSettings) {
     return (
-      <div className="max-w-[760px] mx-auto pb-[60px] pt-6">
+      <div className="max-w-[760px] mx-auto pb-[60px] pt-8">
+        <div
+          data-tauri-drag-region
+          className="fixed top-0 left-0 right-0 h-8 z-40"
+        />
+        <WindowControls />
         <SettingsPanel onClose={() => setShowSettings(false)} />
       </div>
     );
@@ -99,7 +105,13 @@ function App() {
   const activeCount = runtimes.filter((r) => r.status === "active").length;
 
   return (
-    <div className="max-w-[760px] mx-auto px-5 pb-[60px] pt-6">
+    <div className="max-w-[760px] mx-auto px-5 pb-[60px] pt-8">
+      <div
+        data-tauri-drag-region
+        className="fixed top-0 left-0 right-0 h-8 z-40"
+      />
+      <WindowControls />
+
       <Header
         count={runtimes.length}
         activeCount={activeCount}
