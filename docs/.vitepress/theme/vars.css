@@ -1,0 +1,105 @@
+/**
+ * Colors — Futou palette (warm beige + steel blue)
+ * =============================================================== */
+
+:root {
+    --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+    --vp-c-brand-1: #185fa5;
+    --vp-c-brand-2: #1a6cb8;
+    --vp-c-brand-light: #1a78cc;
+    --vp-c-bg-alt: #e2e0d9;
+    --vp-c-brand-dark: #134b82;
+    --vp-c-border: #e2e0d9;
+    --vp-code-block-bg: #f5f4f1;
+    --vp-code-copy-code-bg: #e8e6df;
+    --vp-code-copy-code-hover-bg: #e8e6df;
+    --vp-c-text-dark-2: #6b6a63;
+    --vp-c-text-dark-3: #6b6a63;
+    --vp-sidebar-bg-color: var(--vp-c-bg);
+    --vp-custom-block-tip-border: transparent;
+    --vp-custom-block-tip-text: var(--vp-c-text-1);
+    --vp-nav-bg-color: color-mix(in srgb, var(--vp-c-bg) 95%, transparent);
+    --vp-custom-block-tip-bg: #e6f1fb;
+    --vp-custom-block-tip-code-bg: #c8dff5;
+    --vp-custom-block-tip-border: #d4e6f9;
+    --vp-custom-block-tip-text: #185fa5;
+    --vp-c-brand-nav-active: color-mix(
+        in srgb,
+        var(--vp-c-brand-light) 15%,
+        transparent 100%
+    );
+    --vp-nav-logo-height: 28px;
+
+    --vp-c-bg-elv: #f0efeb;
+
+    --vp-code-copy-code-bg: #f0efeb;
+    --vp-code-copy-code-hover-bg: #fff;
+    --vp-code-copy-code-border-color: #e2e0d9;
+}
+
+.dark {
+    --vp-c-brand-1: #4a90d9;
+    --vp-c-brand-2: #3a7ec5;
+    --vp-c-brand-light: #5a9fe8;
+    --vp-c-bg-alt: #1e293b;
+    --vp-c-brand-dark: #2a5f99;
+    --vp-c-bg: #0f172a;
+    --vp-c-border: #1e293b;
+    --vp-c-bg-alt: #1e293b;
+    --vp-c-bg-soft: #1e293b;
+    --vp-c-divider: #334155;
+    --vp-code-block-bg: #1e293b;
+    --vp-c-bg-alpha-with-backdrop: #0f172abf;
+    --vp-code-copy-code-bg: #1e293b;
+    --vp-code-copy-code-hover-bg: #1e293b;
+    --vp-c-text-dark-2: #94a3b8;
+    --vp-c-text-dark-3: #94a3b8;
+    --vp-custom-block-tip-bg: #0c1929;
+    --vp-custom-block-tip-border: #1a3a5c;
+    --vp-custom-block-tip-text: #90caf9;
+    --vp-c-brand-nav-active: color-mix(
+        in srgb,
+        var(--vp-c-brand-dark) 30%,
+        transparent 100%
+    );
+
+    --vp-c-bg-elv: #1e293b;
+    --vp-c-neutral-inverse: #1e293b;
+
+    --vp-code-copy-code-bg: #1e293b;
+    --vp-code-copy-code-hover-bg: #1e293b;
+    --vp-code-copy-code-border-color: #334155;
+}
+
+/**
+ * Component: Button
+ * =============================================================== */
+
+:root {
+    --vp-button-brand-border: var(--vp-c-brand-light);
+    --vp-button-brand-text: var(--vp-c-white);
+    --vp-button-brand-bg: var(--vp-c-brand-1);
+    --vp-button-brand-hover-border: var(--vp-c-brand-light);
+    --vp-button-brand-hover-text: var(--vp-c-white);
+    --vp-button-brand-hover-bg: var(--vp-c-brand-light);
+    --vp-button-brand-active-border: var(--vp-c-brand-light);
+    --vp-button-brand-active-text: var(--vp-c-white);
+    --vp-button-brand-active-bg: var(--vp-button-brand-bg);
+}
+
+/**
+ * Component: Custom Block
+ * =============================================================== */
+
+:root {
+    --vp-custom-block-tip-border: var(--vp-c-brand-1);
+    --vp-custom-block-tip-text: var(--vp-c-brand-darker);
+    --vp-custom-block-tip-bg: var(--vp-c-brand-dimm);
+}
+
+.dark {
+    --vp-custom-block-tip-border: var(--vp-c-brand-1);
+    --vp-custom-block-tip-text: var(--vp-c-brand-lightest);
+    --vp-custom-block-tip-bg: var(--vp-c-brand-dimm);
+}
