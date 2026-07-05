@@ -1,5 +1,5 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct RuntimeName(pub String);
@@ -61,6 +61,12 @@ pub struct DaemonState {
     pub pids: HashMap<String, u32>,
 }
 
+impl Default for DaemonState {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl DaemonState {
     pub fn new() -> Self {
         Self {
@@ -70,17 +76,33 @@ impl DaemonState {
         }
     }
 
-    pub fn find_installation(&self, runtime: &RuntimeName, version: &Version) -> Option<&Installation> {
-        self.installations.iter().find(|i| i.runtime == *runtime && i.version == *version)
+    pub fn find_installation(
+        &self,
+        runtime: &RuntimeName,
+        version: &Version,
+    ) -> Option<&Installation> {
+        self.installations
+            .iter()
+            .find(|i| i.runtime == *runtime && i.version == *version)
     }
 
-    pub fn find_installation_mut(&mut self, runtime: &RuntimeName, version: &Version) -> Option<&mut Installation> {
-        self.installations.iter_mut().find(|i| i.runtime == *runtime && i.version == *version)
+    pub fn find_installation_mut(
+        &mut self,
+        runtime: &RuntimeName,
+        version: &Version,
+    ) -> Option<&mut Installation> {
+        self.installations
+            .iter_mut()
+            .find(|i| i.runtime == *runtime && i.version == *version)
     }
 
     pub fn list_installed(&self, runtime: Option<&RuntimeName>) -> Vec<&Installation> {
         match runtime {
-            Some(name) => self.installations.iter().filter(|i| i.runtime == *name).collect(),
+            Some(name) => self
+                .installations
+                .iter()
+                .filter(|i| i.runtime == *name)
+                .collect(),
             None => self.installations.iter().collect(),
         }
     }

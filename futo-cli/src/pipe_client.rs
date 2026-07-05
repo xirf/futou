@@ -32,7 +32,11 @@ impl PipeClient {
         self.notification_tx.subscribe()
     }
 
-    pub async fn send_request(&mut self, method: &str, params: Option<serde_json::Value>) -> Result<serde_json::Value, String> {
+    pub async fn send_request(
+        &mut self,
+        method: &str,
+        params: Option<serde_json::Value>,
+    ) -> Result<serde_json::Value, String> {
         let id = self.next_id;
         self.next_id += 1;
 
@@ -46,13 +50,18 @@ impl PipeClient {
         let mut json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
         json.push('\n');
 
-        self.writer.write_all(json.as_bytes()).await
+        self.writer
+            .write_all(json.as_bytes())
+            .await
             .map_err(|e| format!("Write error: {}", e))?;
 
         let mut line = String::new();
         loop {
             line.clear();
-            let n = self.reader.read_line(&mut line).await
+            let n = self
+                .reader
+                .read_line(&mut line)
+                .await
                 .map_err(|e| format!("Read error: {}", e))?;
 
             if n == 0 {
@@ -64,8 +73,8 @@ impl PipeClient {
                 continue;
             }
 
-            let msg: serde_json::Value = serde_json::from_str(trimmed)
-                .map_err(|e| format!("Parse error: {}", e))?;
+            let msg: serde_json::Value =
+                serde_json::from_str(trimmed).map_err(|e| format!("Parse error: {}", e))?;
 
             if msg.get("method").and_then(|m| m.as_str()) == Some("progress") {
                 if let Ok(notification) = serde_json::from_value::<RpcNotification>(msg) {
@@ -76,10 +85,16 @@ impl PipeClient {
 
             if msg.get("id").and_then(|i| i.as_u64()) == Some(id) {
                 if let Some(error) = msg.get("error") {
-                    let msg = error.get("message").and_then(|m| m.as_str()).unwrap_or("Unknown error");
+                    let msg = error
+                        .get("message")
+                        .and_then(|m| m.as_str())
+                        .unwrap_or("Unknown error");
                     return Err(msg.to_string());
                 }
-                return Ok(msg.get("result").cloned().unwrap_or(serde_json::Value::Null));
+                return Ok(msg
+                    .get("result")
+                    .cloned()
+                    .unwrap_or(serde_json::Value::Null));
             }
         }
     }

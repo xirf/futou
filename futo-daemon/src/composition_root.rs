@@ -1,6 +1,7 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::Command;
 use std::sync::Arc;
+use std::time::Instant;
 
 use futou_core::ports::catalogue_source::CatalogueSource;
 use futou_core::ports::downloader::Downloader;
@@ -14,17 +15,17 @@ use futou_core::service::catalogue_service::CatalogueService;
 use futou_core::service::env_service::EnvService;
 use futou_core::service::install_service::InstallService;
 
-use std::env;
-use tracing::warn;
 use crate::adapters::aria2_downloader::Aria2Downloader;
 use crate::adapters::async_extractor::AsyncExtractor;
-use crate::adapters::null_downloader::NullDownloader;
 use crate::adapters::fs_repository::FsRepository;
+use crate::adapters::null_downloader::NullDownloader;
 use crate::adapters::path_manager_win::WindowsPathManager;
 use crate::adapters::process_manager_win::WindowsProcessManager;
 use crate::adapters::remote_catalogue::RemoteCatalogueSource;
 use crate::adapters::shim_manager_win::WindowsShimManager;
 use crate::operation_log::OperationLog;
+use std::env;
+use tracing::warn;
 
 pub struct AppContext {
     pub catalogue_service: CatalogueService,
@@ -33,11 +34,15 @@ pub struct AppContext {
     pub env_service: EnvService,
     pub downloader: Arc<dyn Downloader>,
     pub shutdown_tx: tokio::sync::broadcast::Sender<()>,
-    pub download_progress: std::sync::Arc<std::sync::RwLock<std::collections::HashMap<String, futou_ipc::messages::InstallProgress>>>,
+    pub download_progress: std::sync::Arc<
+        std::sync::RwLock<std::collections::HashMap<String, futou_ipc::messages::InstallProgress>>,
+    >,
     pub operation_log: std::sync::Arc<OperationLog>,
+    pub started_at: Instant,
+    pub aria2_available: bool,
 }
 
-async fn resolve_aria2c(data_dir: &PathBuf) -> PathBuf {
+async fn resolve_aria2c(data_dir: &Path) -> PathBuf {
     let bundled = env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.join("aria2c")))
@@ -66,7 +71,7 @@ async fn resolve_aria2c(data_dir: &PathBuf) -> PathBuf {
     let _ = tokio::fs::create_dir_all(data_dir.join("aria2")).await;
     match download_aria2(download_url, &zip_path).await {
         Ok(()) => {
-            if let Ok(_) = extract_zip(&zip_path, &data_dir.join("aria2")) {
+            if extract_zip(&zip_path, &data_dir.join("aria2")).is_ok() {
                 let _ = tokio::fs::remove_file(&zip_path).await;
                 let exe = find_aria2_exe(&data_dir.join("aria2"));
                 if let Some(p) = exe {
@@ -86,7 +91,8 @@ async fn download_aria2(url: &str, dest: &PathBuf) -> Result<(), String> {
     let resp = reqwest::get(url)
         .await
         .map_err(|e| format!("HTTP error: {}", e))?;
-    let bytes = resp.bytes()
+    let bytes = resp
+        .bytes()
         .await
         .map_err(|e| format!("Read error: {}", e))?;
     tokio::fs::write(dest, &bytes)
@@ -95,13 +101,15 @@ async fn download_aria2(url: &str, dest: &PathBuf) -> Result<(), String> {
     Ok(())
 }
 
-fn extract_zip(zip_path: &PathBuf, out_dir: &PathBuf) -> Result<(), String> {
+fn extract_zip(zip_path: &PathBuf, out_dir: &Path) -> Result<(), String> {
     let file = std::fs::File::open(zip_path).map_err(|e| e.to_string())?;
     let mut archive = zip::ZipArchive::new(file).map_err(|e| e.to_string())?;
 
     for i in 0..archive.len() {
         let mut entry = archive.by_index(i).map_err(|e| e.to_string())?;
-        let Some(path) = entry.enclosed_name() else { continue };
+        let Some(path) = entry.enclosed_name() else {
+            continue;
+        };
         let target = out_dir.join(path);
 
         if entry.is_dir() {
@@ -147,7 +155,7 @@ async fn cleanup_old_aria2(pid_path: &PathBuf) {
     let _ = std::fs::remove_file(pid_path);
 }
 
-pub async fn build_composition_root(data_dir: &PathBuf) -> anyhow::Result<AppContext> {
+pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContext> {
     let runtimes_dir = data_dir.join("runtimes");
     let download_dir = data_dir.join("aria2").join("downloads");
     let cache_dir = data_dir.join("catalogue");
@@ -168,26 +176,35 @@ pub async fn build_composition_root(data_dir: &PathBuf) -> anyhow::Result<AppCon
     }
     let _ = tokio::fs::write(&bundle_path, bundled).await;
 
-    let remote_url = "https://raw.githubusercontent.com/user/futou-catalogue/main/catalogue.json".to_string();
-    let catalogue_source: Arc<dyn CatalogueSource> = Arc::new(
-        RemoteCatalogueSource::new(remote_url, cache_dir, data_dir.join("catalogue")),
-    );
+    let remote_url =
+        "https://raw.githubusercontent.com/xirf/futou/master/catalogue.json".to_string();
+    let catalogue_source: Arc<dyn CatalogueSource> = Arc::new(RemoteCatalogueSource::new(
+        remote_url,
+        cache_dir,
+        data_dir.join("catalogue"),
+    ));
 
     let aria2_path = resolve_aria2c(data_dir).await;
 
     let aria2_pid_path = data_dir.join("aria2").join("aria2.pid");
     cleanup_old_aria2(&aria2_pid_path).await;
 
-    let downloader: Arc<dyn Downloader> = match Aria2Downloader::spawn(&aria2_path, &download_dir, &aria2_pid_path).await {
-        Ok(d) => {
-            warn!("aria2 RPC downloader ready (path: {:?})", aria2_path);
-            Arc::new(d)
-        }
-        Err(e) => {
-            warn!("aria2c not found ({}). Install aria2 to enable downloads.", e);
-            Arc::new(NullDownloader)
-        }
-    };
+    let mut aria2_available = false;
+    let downloader: Arc<dyn Downloader> =
+        match Aria2Downloader::spawn(&aria2_path, &download_dir, &aria2_pid_path).await {
+            Ok(d) => {
+                warn!("aria2 RPC downloader ready (path: {:?})", aria2_path);
+                aria2_available = true;
+                Arc::new(d)
+            }
+            Err(e) => {
+                warn!(
+                    "aria2c not found ({}). Install aria2 to enable downloads.",
+                    e
+                );
+                Arc::new(NullDownloader)
+            }
+        };
 
     let extractor: Arc<dyn Extractor> = Arc::new(AsyncExtractor);
 
@@ -212,7 +229,7 @@ pub async fn build_composition_root(data_dir: &PathBuf) -> anyhow::Result<AppCon
 
     // Kill orphaned server processes from a previous daemon run
     if let Ok(state) = repository.load().await {
-        for (_runtime, pid) in &state.pids {
+        for pid in state.pids.values() {
             let _ = std::process::Command::new("taskkill")
                 .args(["/F", "/PID", &pid.to_string()])
                 .stdout(std::process::Stdio::null())
@@ -237,7 +254,11 @@ pub async fn build_composition_root(data_dir: &PathBuf) -> anyhow::Result<AppCon
         env_service,
         downloader,
         shutdown_tx,
-        download_progress: std::sync::Arc::new(std::sync::RwLock::new(std::collections::HashMap::new())),
+        download_progress: std::sync::Arc::new(std::sync::RwLock::new(
+            std::collections::HashMap::new(),
+        )),
         operation_log: std::sync::Arc::new(OperationLog::new()),
+        started_at: Instant::now(),
+        aria2_available,
     })
 }

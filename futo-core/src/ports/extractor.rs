@@ -1,6 +1,11 @@
 #[async_trait::async_trait]
 pub trait Extractor: Send + Sync {
-    async fn extract(&self, archive: &std::path::Path, dest: &std::path::Path, archive_type: &str) -> Result<(), ExtractError>;
+    async fn extract(
+        &self,
+        archive: &std::path::Path,
+        dest: &std::path::Path,
+        archive_type: &str,
+    ) -> Result<(), ExtractError>;
 }
 
 #[derive(Debug, thiserror::Error)]

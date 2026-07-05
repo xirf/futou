@@ -16,7 +16,6 @@ tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 zip = "2"
 tar = "0.4"
 flate2 = "1"
-sha2 = "0.10"
 winreg = "0.54"
 anyhow = "1"
 dirs = "6"

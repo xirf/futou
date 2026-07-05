@@ -34,16 +34,25 @@ impl WindowsProcessManager {
 
 #[async_trait::async_trait]
 impl ProcessManager for WindowsProcessManager {
-    async fn start_server(&self, runtime: &str, bin_dir: &Path, data_dir: &Path) -> Result<u32, ProcessError> {
+    async fn start_server(
+        &self,
+        runtime: &str,
+        bin_dir: &Path,
+        data_dir: &Path,
+    ) -> Result<u32, ProcessError> {
         let port = Self::default_port(runtime)
             .ok_or_else(|| ProcessError::NotServer(runtime.to_string()))?;
 
         match runtime {
             "mariadb" | "mysql" => {
-                let exe = find_exe(bin_dir, &["mariadbd.exe", "mysqld.exe"])
-                    .ok_or_else(|| ProcessError::Io(format!("mariadbd not found in {:?}", bin_dir)))?;
+                let exe = find_exe(bin_dir, &["mariadbd.exe", "mysqld.exe"]).ok_or_else(|| {
+                    ProcessError::Io(format!("mariadbd not found in {:?}", bin_dir))
+                })?;
 
-                info!("Starting MariaDB: {:?} --datadir={:?} --port={}", exe, data_dir, port);
+                info!(
+                    "Starting MariaDB: {:?} --datadir={:?} --port={}",
+                    exe, data_dir, port
+                );
                 let child = tokio::process::Command::new(&exe)
                     .arg(format!("--datadir={}", data_dir.display()))
                     .arg(format!("--port={}", port))
@@ -58,10 +67,16 @@ impl ProcessManager for WindowsProcessManager {
             "postgresql" => {
                 let pg_ctl = bin_dir.join("pg_ctl.exe");
                 if !pg_ctl.exists() {
-                    return Err(ProcessError::Io(format!("pg_ctl not found in {:?}", bin_dir)));
+                    return Err(ProcessError::Io(format!(
+                        "pg_ctl not found in {:?}",
+                        bin_dir
+                    )));
                 }
 
-                info!("Starting PostgreSQL: {:?} -D {:?} -p {}", pg_ctl, data_dir, port);
+                info!(
+                    "Starting PostgreSQL: {:?} -D {:?} -p {}",
+                    pg_ctl, data_dir, port
+                );
                 let child = tokio::process::Command::new(&pg_ctl)
                     .arg("start")
                     .arg("-D")
@@ -99,7 +114,12 @@ impl ProcessManager for WindowsProcessManager {
         Ok(())
     }
 
-    async fn init_data_dir(&self, runtime: &str, bin_dir: &Path, data_dir: &Path) -> Result<(), ProcessError> {
+    async fn init_data_dir(
+        &self,
+        runtime: &str,
+        bin_dir: &Path,
+        data_dir: &Path,
+    ) -> Result<(), ProcessError> {
         if data_initialized(data_dir) {
             info!("Data dir {:?} already initialized, skipping", data_dir);
             return Ok(());
@@ -109,10 +129,16 @@ impl ProcessManager for WindowsProcessManager {
 
         match runtime {
             "mariadb" | "mysql" => {
-                let init_exe = find_exe(bin_dir, &["mariadb-install-db.exe", "mysql_install_db.exe"])
-                    .ok_or_else(|| ProcessError::Io(format!("mysql_install_db not found in {:?}", bin_dir)))?;
+                let init_exe =
+                    find_exe(bin_dir, &["mariadb-install-db.exe", "mysql_install_db.exe"])
+                        .ok_or_else(|| {
+                            ProcessError::Io(format!("mysql_install_db not found in {:?}", bin_dir))
+                        })?;
 
-                info!("Initializing MariaDB data dir: {:?} --datadir={:?}", init_exe, data_dir);
+                info!(
+                    "Initializing MariaDB data dir: {:?} --datadir={:?}",
+                    init_exe, data_dir
+                );
                 let output = tokio::process::Command::new(&init_exe)
                     .arg(format!("--datadir={}", data_dir.display()))
                     .stdout(std::process::Stdio::null())
@@ -123,16 +149,25 @@ impl ProcessManager for WindowsProcessManager {
 
                 if !output.status.success() {
                     let stderr = String::from_utf8_lossy(&output.stderr);
-                    return Err(ProcessError::ExitError(format!("mysql_install_db: {}", stderr)));
+                    return Err(ProcessError::ExitError(format!(
+                        "mysql_install_db: {}",
+                        stderr
+                    )));
                 }
             }
             "postgresql" => {
                 let initdb = bin_dir.join("initdb.exe");
                 if !initdb.exists() {
-                    return Err(ProcessError::Io(format!("initdb not found in {:?}", bin_dir)));
+                    return Err(ProcessError::Io(format!(
+                        "initdb not found in {:?}",
+                        bin_dir
+                    )));
                 }
 
-                info!("Initializing PostgreSQL data dir: {:?} -D {:?}", initdb, data_dir);
+                info!(
+                    "Initializing PostgreSQL data dir: {:?} -D {:?}",
+                    initdb, data_dir
+                );
                 let output = tokio::process::Command::new(&initdb)
                     .arg("-D")
                     .arg(data_dir)

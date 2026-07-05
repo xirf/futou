@@ -638,7 +638,6 @@ dependencies = [
 name = "futou-cli"
 version = "0.1.0"
 dependencies = [
- "anyhow",
  "clap",
  "futou-ipc",
  "serde",
@@ -654,12 +653,9 @@ dependencies = [
  "chrono",
  "futou-ipc",
  "serde",
- "serde_json",
  "sha2",
  "thiserror 1.0.69",
- "tokio",
  "tracing",
- "uuid",
 ]
 
 [[package]]
@@ -676,7 +672,6 @@ dependencies = [
  "reqwest",
  "serde",
  "serde_json",
- "sha2",
  "tar",
  "tokio",
  "tracing",

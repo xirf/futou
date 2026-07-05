@@ -12,7 +12,10 @@ pub struct FsRepository {
 
 impl FsRepository {
     pub fn new(path: PathBuf) -> Self {
-        Self { path, cache: Arc::new(RwLock::new(None)) }
+        Self {
+            path,
+            cache: Arc::new(RwLock::new(None)),
+        }
     }
 }
 
@@ -32,7 +35,8 @@ impl RuntimeRepository for FsRepository {
             return Ok(state);
         }
 
-        let content = tokio::fs::read_to_string(&self.path).await
+        let content = tokio::fs::read_to_string(&self.path)
+            .await
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
         let state: DaemonState = serde_json::from_str(&content)
             .map_err(|e| RepositoryError::Serialization(e.to_string()))?;
@@ -42,12 +46,14 @@ impl RuntimeRepository for FsRepository {
 
     async fn save(&self, state: &DaemonState) -> Result<(), RepositoryError> {
         if let Some(parent) = self.path.parent() {
-            tokio::fs::create_dir_all(parent).await
+            tokio::fs::create_dir_all(parent)
+                .await
                 .map_err(|e| RepositoryError::Io(e.to_string()))?;
         }
         let content = serde_json::to_string_pretty(state)
             .map_err(|e| RepositoryError::Serialization(e.to_string()))?;
-        tokio::fs::write(&self.path, &content).await
+        tokio::fs::write(&self.path, &content)
+            .await
             .map_err(|e| RepositoryError::Io(e.to_string()))?;
         self.cache.write().await.replace(state.clone());
         Ok(())
@@ -59,11 +65,14 @@ impl RuntimeRepository for FsRepository {
         self.save(&state).await
     }
 
-    async fn update_status(&self, runtime: &RuntimeName, version: &Version, status: &str) -> Result<(), RepositoryError> {
+    async fn update_status(
+        &self,
+        runtime: &RuntimeName,
+        version: &Version,
+        status: &str,
+    ) -> Result<(), RepositoryError> {
         let mut state = self.load().await?;
         if let Some(inst) = state.find_installation_mut(runtime, version) {
-            inst.status = futou_core::domain::runtime::InstallStatus::Installed;
-            // map string status to enum
             inst.status = match status {
                 "active" => futou_core::domain::runtime::InstallStatus::Active,
                 "installed" => futou_core::domain::runtime::InstallStatus::Installed,
@@ -73,9 +82,15 @@ impl RuntimeRepository for FsRepository {
         self.save(&state).await
     }
 
-    async fn remove_installation(&self, runtime: &RuntimeName, version: &Version) -> Result<(), RepositoryError> {
+    async fn remove_installation(
+        &self,
+        runtime: &RuntimeName,
+        version: &Version,
+    ) -> Result<(), RepositoryError> {
         let mut state = self.load().await?;
-        state.installations.retain(|i| !(i.runtime == *runtime && i.version == *version));
+        state
+            .installations
+            .retain(|i| !(i.runtime == *runtime && i.version == *version));
         self.save(&state).await
     }
 }

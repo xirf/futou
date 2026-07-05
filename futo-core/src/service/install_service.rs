@@ -27,7 +27,13 @@ impl InstallService {
         catalogue: Arc<dyn CatalogueSource>,
         runtimes_dir: PathBuf,
     ) -> Self {
-        Self { downloader, extractor, repository, catalogue, runtimes_dir }
+        Self {
+            downloader,
+            extractor,
+            repository,
+            catalogue,
+            runtimes_dir,
+        }
     }
 
     pub async fn install(
@@ -36,17 +42,29 @@ impl InstallService {
         version: &Version,
         progress: impl Fn(f64, String) + Send + Sync + 'static,
     ) -> Result<Installation, InstallError> {
-        if self.repository.load().await?.find_installation(runtime, version).is_some() {
+        if self
+            .repository
+            .load()
+            .await?
+            .find_installation(runtime, version)
+            .is_some()
+        {
             return Err(InstallError::AlreadyInstalled);
         }
 
         let progress = Arc::new(progress);
 
         progress(0.0, "Looking up version in catalogue".to_string());
-        let version_urls = self.catalogue.fetch_version_urls(&runtime.0, &version.0).await?;
+        let version_urls = self
+            .catalogue
+            .fetch_version_urls(&runtime.0, &version.0)
+            .await?;
 
         let version_dir = self.runtimes_dir.join(&runtime.0).join(&version.0);
-        let archive_path = self.runtimes_dir.join(&runtime.0).join(format!("{}-{}.tmp", runtime, version));
+        let archive_path = self
+            .runtimes_dir
+            .join(&runtime.0)
+            .join(format!("{}-{}.tmp", runtime, version));
 
         if let Some(parent) = archive_path.parent() {
             std::fs::create_dir_all(parent).map_err(|e| InstallError::Io(e.to_string()))?;
@@ -54,28 +72,37 @@ impl InstallService {
 
         progress(0.05, "Downloading".to_string());
         let progress_dl = progress.clone();
-        self.downloader.download(
-            &version_urls.url,
-            &archive_path,
-            Box::new(move |pct, msg| {
-                let calculated = 0.05 + pct * 0.65;
-                progress_dl(calculated, msg);
-            }),
-        ).await?;
+        self.downloader
+            .download(
+                &version_urls.url,
+                &archive_path,
+                Box::new(move |pct, msg| {
+                    let calculated = 0.05 + pct * 0.65;
+                    progress_dl(calculated, msg);
+                }),
+            )
+            .await?;
 
         progress(0.70, "Verifying checksum".to_string());
         if !version_urls.checksum.is_empty() {
-            verify_checksum(&archive_path, &version_urls.checksum).map_err(|e| {
-                InstallError::Verification(e.to_string())
-            })?;
+            verify_checksum(&archive_path, &version_urls.checksum)
+                .map_err(|e| InstallError::Verification(e.to_string()))?;
         }
 
         progress(0.80, "Extracting".to_string());
         std::fs::create_dir_all(&version_dir).map_err(|e| InstallError::Io(e.to_string()))?;
-        self.extractor.extract(&archive_path, &version_dir, &version_urls.archive_type).await?;
+        self.extractor
+            .extract(&archive_path, &version_dir, &version_urls.archive_type)
+            .await?;
 
-        let bin_dir = version_urls.bin_dir.map(|d| version_dir.join(d)).unwrap_or_else(|| version_dir.clone());
-        info!("install: runtime={} version={} bin_dir={:?}", runtime, version, bin_dir);
+        let bin_dir = version_urls
+            .bin_dir
+            .map(|d| version_dir.join(d))
+            .unwrap_or_else(|| version_dir.clone());
+        info!(
+            "install: runtime={} version={} bin_dir={:?}",
+            runtime, version, bin_dir
+        );
 
         progress(0.95, "Registering installation".to_string());
         let installation = Installation {
@@ -87,7 +114,9 @@ impl InstallService {
             installed_at: chrono::Utc::now().to_rfc3339(),
         };
 
-        self.repository.add_installation(installation.clone()).await?;
+        self.repository
+            .add_installation(installation.clone())
+            .await?;
 
         let _ = std::fs::remove_file(&archive_path);
 
@@ -95,12 +124,18 @@ impl InstallService {
         Ok(installation)
     }
 
-    pub async fn uninstall(&self, runtime: &RuntimeName, version: &Version) -> Result<(), InstallError> {
+    pub async fn uninstall(
+        &self,
+        runtime: &RuntimeName,
+        version: &Version,
+    ) -> Result<(), InstallError> {
         let version_dir = self.runtimes_dir.join(&runtime.0).join(&version.0);
         if version_dir.exists() {
             std::fs::remove_dir_all(&version_dir).map_err(|e| InstallError::Io(e.to_string()))?;
         }
-        self.repository.remove_installation(runtime, version).await?;
+        self.repository
+            .remove_installation(runtime, version)
+            .await?;
         Ok(())
     }
 }

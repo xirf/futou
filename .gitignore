@@ -28,3 +28,7 @@ Thumbs.db
 
 # Tauri build intermediates
 futo-gui/src-tauri/bin/
+
+# Generated
+*.tsbuildinfo
+tsconfig.tsbuildinfo

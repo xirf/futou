@@ -26,7 +26,10 @@ pub async fn run_pipe_server(ctx: Arc<tokio::sync::RwLock<AppContext>>, pipe_nam
 
     // Create additional instances for concurrent clients
     for _ in 0..3 {
-        if let Ok(server) = ServerOptions::new().first_pipe_instance(false).create(&path) {
+        if let Ok(server) = ServerOptions::new()
+            .first_pipe_instance(false)
+            .create(&path)
+        {
             let ctx_clone = ctx.clone();
             tokio::spawn(async move {
                 serve_client(server, ctx_clone).await;
@@ -34,7 +37,10 @@ pub async fn run_pipe_server(ctx: Arc<tokio::sync::RwLock<AppContext>>, pipe_nam
         } else {
             // Stagger creation so the first instance has time to register
             tokio::time::sleep(std::time::Duration::from_millis(50)).await;
-            if let Ok(server) = ServerOptions::new().first_pipe_instance(false).create(&path) {
+            if let Ok(server) = ServerOptions::new()
+                .first_pipe_instance(false)
+                .create(&path)
+            {
                 let ctx_clone = ctx.clone();
                 tokio::spawn(async move {
                     serve_client(server, ctx_clone).await;
@@ -53,12 +59,15 @@ pub async fn run_pipe_server(ctx: Arc<tokio::sync::RwLock<AppContext>>, pipe_nam
             _ = tokio::time::sleep(std::time::Duration::from_millis(500)) => {}
         }
 
-        let _ = ServerOptions::new().first_pipe_instance(false).create(&path).map(|server| {
-            let ctx_clone = ctx.clone();
-            tokio::spawn(async move {
-                serve_client(server, ctx_clone).await;
+        let _ = ServerOptions::new()
+            .first_pipe_instance(false)
+            .create(&path)
+            .map(|server| {
+                let ctx_clone = ctx.clone();
+                tokio::spawn(async move {
+                    serve_client(server, ctx_clone).await;
+                });
             });
-        });
     }
 }
 
@@ -67,7 +76,10 @@ async fn create_pipe_instance(path: &str, first: bool) -> NamedPipeServer {
         match ServerOptions::new().first_pipe_instance(first).create(path) {
             Ok(server) => return server,
             Err(e) => {
-                error!("Failed to create pipe instance (first={}): {}. Retrying in 1s...", first, e);
+                error!(
+                    "Failed to create pipe instance (first={}): {}. Retrying in 1s...",
+                    first, e
+                );
                 tokio::time::sleep(std::time::Duration::from_secs(1)).await;
             }
         }
@@ -105,7 +117,8 @@ async fn handle_requests(server: NamedPipeServer, ctx: Arc<tokio::sync::RwLock<A
                 let request: RpcRequest = match serde_json::from_str(trimmed) {
                     Ok(req) => req,
                     Err(e) => {
-                        let error_resp = RpcResponse::error(0, -32700, format!("Parse error: {}", e));
+                        let error_resp =
+                            RpcResponse::error(0, -32700, format!("Parse error: {}", e));
                         let json = serde_json::to_string(&error_resp).unwrap_or_default();
                         let _ = writer.write_all(json.as_bytes()).await;
                         let _ = writer.write_all(b"\n").await;

@@ -11,10 +11,9 @@ const EXECUTABLE_EXTENSIONS: &[&str] = &["exe", "bat", "cmd", "com"];
 fn is_executable(name: &std::ffi::OsStr) -> bool {
     let name = name.to_string_lossy();
     let lower = name.to_lowercase();
-    EXECUTABLE_EXTENSIONS.iter().any(|ext| {
-        lower.ends_with(&format!(".{}", ext))
-            || lower == *ext
-    })
+    EXECUTABLE_EXTENSIONS
+        .iter()
+        .any(|ext| lower.ends_with(&format!(".{}", ext)) || lower == *ext)
 }
 
 impl WindowsShimManager {
@@ -24,25 +23,28 @@ impl WindowsShimManager {
 
     fn create_bat_shim(shim_path: &Path, target: &Path) -> Result<(), ShimError> {
         let target_exe = target.to_string_lossy().replace('/', "\\");
-        let bat_content = format!(
-            "@echo off\r\n\"{}\" %*\r\n",
-            target_exe
-        );
-        std::fs::write(shim_path, bat_content)
-            .map_err(|e| ShimError::Io(e.to_string()))
+        let bat_content = format!("@echo off\r\n\"{}\" %*\r\n", target_exe);
+        std::fs::write(shim_path, bat_content).map_err(|e| ShimError::Io(e.to_string()))
     }
 }
 
 #[async_trait::async_trait]
 impl ShimManager for WindowsShimManager {
-    async fn create_shims(&self, _runtime: &str, _version: &str, bin_dir: &Path) -> Result<(), ShimError> {
-        std::fs::create_dir_all(&self.shim_dir)
+    async fn create_shims(
+        &self,
+        _runtime: &str,
+        _version: &str,
+        bin_dir: &Path,
+    ) -> Result<(), ShimError> {
+        std::fs::create_dir_all(&self.shim_dir).map_err(|e| ShimError::Io(e.to_string()))?;
+
+        let mut reader = tokio::fs::read_dir(bin_dir)
+            .await
             .map_err(|e| ShimError::Io(e.to_string()))?;
 
-        let mut reader = tokio::fs::read_dir(bin_dir).await
-            .map_err(|e| ShimError::Io(e.to_string()))?;
-
-        while let Some(entry) = reader.next_entry().await
+        while let Some(entry) = reader
+            .next_entry()
+            .await
             .map_err(|e| ShimError::Io(e.to_string()))?
         {
             let path = entry.path();
@@ -64,10 +66,13 @@ impl ShimManager for WindowsShimManager {
     }
 
     async fn remove_shims(&self, _runtime: &str) -> Result<(), ShimError> {
-        let mut reader = tokio::fs::read_dir(&self.shim_dir).await
+        let mut reader = tokio::fs::read_dir(&self.shim_dir)
+            .await
             .map_err(|e| ShimError::Io(e.to_string()))?;
 
-        while let Some(entry) = reader.next_entry().await
+        while let Some(entry) = reader
+            .next_entry()
+            .await
             .map_err(|e| ShimError::Io(e.to_string()))?
         {
             let path = entry.path();

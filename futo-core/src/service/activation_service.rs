@@ -1,12 +1,12 @@
 use std::path::PathBuf;
 use std::sync::Arc;
 
-use tracing::info;
 use crate::domain::runtime::{InstallStatus, RuntimeName, Version};
 use crate::ports::path_manager::PathManager;
 use crate::ports::process_manager::ProcessManager;
 use crate::ports::runtime_repo::RuntimeRepository;
 use crate::ports::shim_manager::ShimManager;
+use tracing::info;
 
 pub struct ActivationService {
     repository: Arc<dyn RuntimeRepository>,
@@ -22,10 +22,19 @@ impl ActivationService {
         path_manager: Arc<dyn PathManager>,
         process_manager: Arc<dyn ProcessManager>,
     ) -> Self {
-        Self { repository, shim_manager, path_manager, process_manager }
+        Self {
+            repository,
+            shim_manager,
+            path_manager,
+            process_manager,
+        }
     }
 
-    pub async fn activate(&self, runtime: &RuntimeName, version: &Version) -> Result<(), ActivationError> {
+    pub async fn activate(
+        &self,
+        runtime: &RuntimeName,
+        version: &Version,
+    ) -> Result<(), ActivationError> {
         let mut state = self.repository.load().await?;
 
         let installation = state
@@ -34,8 +43,16 @@ impl ActivationService {
             .clone();
 
         let bin_dir = PathBuf::from(&installation.path);
-        info!("activate: runtime={} version={} bin_dir={:?} exists={}", runtime, version, bin_dir, bin_dir.exists());
-        self.shim_manager.create_shims(&runtime.0, &version.0, &bin_dir).await?;
+        info!(
+            "activate: runtime={} version={} bin_dir={:?} exists={}",
+            runtime,
+            version,
+            bin_dir,
+            bin_dir.exists()
+        );
+        self.shim_manager
+            .create_shims(&runtime.0, &version.0, &bin_dir)
+            .await?;
 
         state.set_active(runtime, version);
         if let Some(inst) = state.find_installation_mut(runtime, version) {
@@ -43,8 +60,14 @@ impl ActivationService {
         }
         self.repository.save(&state).await?;
 
-        if !self.path_manager.is_in_path(&self.shim_manager.shim_dir().await?).await? {
-            self.path_manager.add_to_path(&self.shim_manager.shim_dir().await?).await?;
+        if !self
+            .path_manager
+            .is_in_path(&self.shim_manager.shim_dir().await?)
+            .await?
+        {
+            self.path_manager
+                .add_to_path(&self.shim_manager.shim_dir().await?)
+                .await?;
         }
 
         Ok(())
@@ -68,7 +91,11 @@ impl ActivationService {
         Ok(())
     }
 
-    pub async fn start_process(&self, runtime: &RuntimeName, version: &Version) -> Result<u32, ActivationError> {
+    pub async fn start_process(
+        &self,
+        runtime: &RuntimeName,
+        version: &Version,
+    ) -> Result<u32, ActivationError> {
         let state = self.repository.load().await?;
 
         let installation = state
@@ -79,10 +106,15 @@ impl ActivationService {
         let bin_dir = PathBuf::from(&installation.path);
         let data_dir = PathBuf::from(&installation.version_dir).join("data");
 
-        self.process_manager.init_data_dir(&runtime.0, &bin_dir, &data_dir).await
+        self.process_manager
+            .init_data_dir(&runtime.0, &bin_dir, &data_dir)
+            .await
             .map_err(|e| ActivationError::Process(e.to_string()))?;
 
-        let pid = self.process_manager.start_server(&runtime.0, &bin_dir, &data_dir).await
+        let pid = self
+            .process_manager
+            .start_server(&runtime.0, &bin_dir, &data_dir)
+            .await
             .map_err(|e| ActivationError::Process(e.to_string()))?;
 
         let mut state = self.repository.load().await?;
@@ -96,7 +128,9 @@ impl ActivationService {
         let state = self.repository.load().await?;
 
         if let Some(pid) = state.get_pid(runtime) {
-            self.process_manager.stop_server(pid).await
+            self.process_manager
+                .stop_server(pid)
+                .await
                 .map_err(|e| ActivationError::Process(e.to_string()))?;
 
             let mut state = self.repository.load().await?;
@@ -105,10 +139,6 @@ impl ActivationService {
         }
 
         Ok(())
-    }
-
-    pub async fn use_version(&self, runtime: &RuntimeName, version: &Version) -> Result<(), ActivationError> {
-        self.activate(runtime, version).await
     }
 }
 

@@ -1,11 +1,15 @@
+#![cfg(windows)]
+
 mod pipe_client;
 
 use clap::{Parser, Subcommand};
 use futou_ipc::messages::{
-    ActivateParams, CatalogueListResult, DeactivateParams, InstallParams,
+    ActivateParams, CatalogueListResult, DeactivateParams, InstallParams, ProgressParams,
     RuntimeListResult, UninstallParams,
 };
 use pipe_client::PipeClient;
+
+const PIPE_NAME: &str = "futou";
 
 #[derive(Parser)]
 #[command(name = "futou", about = "futou Environment Manager", version)]
@@ -19,24 +23,13 @@ enum Commands {
     /// List installed runtimes
     List,
     /// Install a runtime version
-    Install {
-        runtime: String,
-        version: String,
-    },
+    Install { runtime: String, version: String },
     /// Uninstall a runtime version
-    Uninstall {
-        runtime: String,
-        version: String,
-    },
+    Uninstall { runtime: String, version: String },
     /// Activate a runtime version
-    Use {
-        runtime: String,
-        version: String,
-    },
+    Use { runtime: String, version: String },
     /// Deactivate a runtime
-    Deactivate {
-        runtime: String,
-    },
+    Deactivate { runtime: String },
     /// List available runtimes in catalogue
     Catalogue,
     /// Show daemon status
@@ -46,7 +39,7 @@ enum Commands {
 }
 
 async fn connect() -> Result<PipeClient, String> {
-    PipeClient::connect("futou").await
+    PipeClient::connect(PIPE_NAME).await
 }
 
 #[tokio::main]
@@ -96,7 +89,8 @@ async fn cmd_install(runtime: &str, version: &str) -> Result<String, String> {
     let params = serde_json::to_value(InstallParams {
         runtime: runtime.to_string(),
         version: version.to_string(),
-    }).unwrap();
+    })
+    .unwrap();
 
     let send = client.send_request("runtime.install", Some(params));
     let recv = notif_rx.recv();
@@ -113,11 +107,11 @@ async fn cmd_install(runtime: &str, version: &str) -> Result<String, String> {
             notif = &mut recv => {
                 if let Ok(notification) = notif {
                     if let Some(params) = notification.params {
-                        let msg = params.get("message").and_then(|m| m.as_str()).unwrap_or("");
-                        let progress = params.get("progress").and_then(|p| p.as_f64()).unwrap_or(0.0);
-                        print!("\r{} {:.1}%", msg, progress * 100.0);
-                        use std::io::Write;
-                        std::io::stdout().flush().ok();
+                        if let Ok(p) = serde_json::from_value::<ProgressParams>(params) {
+                            print!("\r{} {:.1}%", p.message, p.progress * 100.0);
+                            use std::io::Write;
+                            std::io::stdout().flush().ok();
+                        }
                     }
                 }
             }
@@ -130,8 +124,11 @@ async fn cmd_uninstall(runtime: &str, version: &str) -> Result<String, String> {
     let params = serde_json::to_value(UninstallParams {
         runtime: runtime.to_string(),
         version: version.to_string(),
-    }).unwrap();
-    client.send_request("runtime.uninstall", Some(params)).await?;
+    })
+    .unwrap();
+    client
+        .send_request("runtime.uninstall", Some(params))
+        .await?;
     Ok(format!("{} {} uninstalled", runtime, version))
 }
 
@@ -140,8 +137,11 @@ async fn cmd_use(runtime: &str, version: &str) -> Result<String, String> {
     let params = serde_json::to_value(ActivateParams {
         runtime: runtime.to_string(),
         version: version.to_string(),
-    }).unwrap();
-    client.send_request("runtime.activate", Some(params)).await?;
+    })
+    .unwrap();
+    client
+        .send_request("runtime.activate", Some(params))
+        .await?;
     Ok(format!("{} {} is now active", runtime, version))
 }
 
@@ -149,8 +149,11 @@ async fn cmd_deactivate(runtime: &str) -> Result<String, String> {
     let mut client = connect().await?;
     let params = serde_json::to_value(DeactivateParams {
         runtime: runtime.to_string(),
-    }).unwrap();
-    client.send_request("runtime.deactivate", Some(params)).await?;
+    })
+    .unwrap();
+    client
+        .send_request("runtime.deactivate", Some(params))
+        .await?;
     Ok(format!("{} deactivated", runtime))
 }
 
@@ -166,7 +169,10 @@ async fn cmd_catalogue() -> Result<String, String> {
     let mut output = String::from("Available runtimes:\n");
     for r in &cat.runtimes {
         let versions = r.versions.join(", ");
-        output.push_str(&format!("  {} ({}): {}\n", r.display_name, r.name, versions));
+        output.push_str(&format!(
+            "  {} ({}): {}\n",
+            r.display_name, r.name, versions
+        ));
     }
     Ok(output)
 }
@@ -174,7 +180,10 @@ async fn cmd_catalogue() -> Result<String, String> {
 async fn cmd_status() -> Result<String, String> {
     let mut client = connect().await?;
     let result = client.send_request("daemon.status", None).await?;
-    Ok(format!("Daemon status: {}", serde_json::to_string_pretty(&result).unwrap()))
+    Ok(format!(
+        "Daemon status: {}",
+        serde_json::to_string_pretty(&result).unwrap()
+    ))
 }
 
 async fn cmd_refresh() -> Result<String, String> {

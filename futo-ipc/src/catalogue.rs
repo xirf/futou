@@ -35,17 +35,8 @@ pub struct BundledRuntimeEntry {
     pub version_url: String,
 }
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Deserialize, Clone, Default)]
 pub struct Config {
     pub data_dir: Option<String>,
     pub daemon_port: Option<u16>,
-}
-
-impl Default for Config {
-    fn default() -> Self {
-        Self {
-            data_dir: None,
-            daemon_port: None,
-        }
-    }
 }

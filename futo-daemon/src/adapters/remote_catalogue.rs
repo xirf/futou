@@ -36,7 +36,8 @@ impl RemoteCatalogueSource {
                 Ok(manifest)
             }
             Err(_) => {
-                let bundled = tokio::fs::read_to_string(&self.bundle_path).await
+                let bundled = tokio::fs::read_to_string(&self.bundle_path)
+                    .await
                     .map_err(|_| CatalogueError::Network("No catalogue available".to_string()))?;
                 serde_json::from_str(&bundled)
                     .map_err(|e| CatalogueError::Network(format!("Bundle parse error: {}", e)))
@@ -45,7 +46,8 @@ impl RemoteCatalogueSource {
     }
 
     async fn fetch_remote(&self) -> Result<CatalogueManifest, CatalogueError> {
-        let resp = self.client
+        let resp = self
+            .client
             .get(&self.remote_url)
             .send()
             .await
@@ -67,17 +69,26 @@ impl CatalogueSource for RemoteCatalogueSource {
         self.load_manifest().await
     }
 
-    async fn fetch_version_urls(&self, runtime: &str, version: &str) -> Result<VersionUrls, CatalogueError> {
+    async fn fetch_version_urls(
+        &self,
+        runtime: &str,
+        version: &str,
+    ) -> Result<VersionUrls, CatalogueError> {
         let manifest = self.load_manifest().await?;
 
-        let entry = manifest.runtimes.get(runtime)
+        let entry = manifest
+            .runtimes
+            .get(runtime)
             .ok_or_else(|| CatalogueError::RuntimeNotFound(runtime.to_string()))?;
 
-        let version_entry = entry.versions.get(version)
-            .ok_or_else(|| CatalogueError::VersionNotFound {
-                runtime: runtime.to_string(),
-                version: version.to_string(),
-            })?;
+        let version_entry =
+            entry
+                .versions
+                .get(version)
+                .ok_or_else(|| CatalogueError::VersionNotFound {
+                    runtime: runtime.to_string(),
+                    version: version.to_string(),
+                })?;
 
         let platform = if cfg!(target_os = "windows") {
             "windows-amd64"
@@ -89,12 +100,16 @@ impl CatalogueSource for RemoteCatalogueSource {
             return Err(CatalogueError::NoPlatformMatch);
         };
 
-        let url = version_entry.url.get(platform)
+        let url = version_entry
+            .url
+            .get(platform)
             .or_else(|| version_entry.url.values().next())
             .ok_or(CatalogueError::NoPlatformMatch)?
             .clone();
 
-        let checksum = version_entry.checksum.get(platform)
+        let checksum = version_entry
+            .checksum
+            .get(platform)
             .cloned()
             .unwrap_or_default();
 

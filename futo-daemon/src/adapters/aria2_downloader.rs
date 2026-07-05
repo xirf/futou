@@ -16,12 +16,19 @@ pub struct Aria2Downloader {
 }
 
 impl Aria2Downloader {
-    pub async fn spawn(aria2c_path: &Path, download_dir: &Path, pid_path: &Path) -> Result<Self, DownloadError> {
+    pub async fn spawn(
+        aria2c_path: &Path,
+        download_dir: &Path,
+        pid_path: &Path,
+    ) -> Result<Self, DownloadError> {
         let secret = uuid::Uuid::new_v4().to_string();
         let port = {
             let listener = std::net::TcpListener::bind("127.0.0.1:0")
                 .map_err(|e| DownloadError::Io(e.to_string()))?;
-            let port = listener.local_addr().map_err(|e| DownloadError::Io(e.to_string()))?.port();
+            let port = listener
+                .local_addr()
+                .map_err(|e| DownloadError::Io(e.to_string()))?
+                .port();
             drop(listener);
             port
         };
@@ -31,8 +38,10 @@ impl Aria2Downloader {
                 "--enable-rpc",
                 "--rpc-listen-all=false",
                 &format!("--rpc-listen-port={}", port),
-                "--rpc-secret", &secret,
-                "--dir", download_dir.to_str().unwrap_or("."),
+                "--rpc-secret",
+                &secret,
+                "--dir",
+                download_dir.to_str().unwrap_or("."),
                 "--console-log-level=error",
                 "--summary-interval=0",
                 "--continue=true",
@@ -46,7 +55,9 @@ impl Aria2Downloader {
             .spawn()
             .map_err(|e| DownloadError::Io(e.to_string()))?;
 
-        let pid = child.id().ok_or(DownloadError::Io("No PID assigned".to_string()))?;
+        let pid = child
+            .id()
+            .ok_or(DownloadError::Io("No PID assigned".to_string()))?;
         if let Some(parent) = pid_path.parent() {
             let _ = std::fs::create_dir_all(parent);
         }
@@ -68,8 +79,15 @@ impl Aria2Downloader {
         Ok(downloader)
     }
 
-    async fn rpc_call(&self, method: &str, params: Vec<serde_json::Value>) -> Result<serde_json::Value, DownloadError> {
-        let mut all_params = vec![serde_json::Value::String(format!("token:{}", self.rpc_secret))];
+    async fn rpc_call(
+        &self,
+        method: &str,
+        params: Vec<serde_json::Value>,
+    ) -> Result<serde_json::Value, DownloadError> {
+        let mut all_params = vec![serde_json::Value::String(format!(
+            "token:{}",
+            self.rpc_secret
+        ))];
         all_params.extend(params);
         let body = serde_json::json!({
             "jsonrpc": "2.0",
@@ -78,7 +96,8 @@ impl Aria2Downloader {
             "params": all_params,
         });
 
-        let resp = self.client
+        let resp = self
+            .client
             .post(&self.rpc_url)
             .json(&body)
             .send()
@@ -96,7 +115,6 @@ impl Aria2Downloader {
 
         Ok(json)
     }
-
 }
 
 #[async_trait::async_trait]
@@ -108,47 +126,70 @@ impl Downloader for Aria2Downloader {
         }
         let _ = std::fs::remove_file(&self.pid_path);
     }
-    
-    async fn download(&self, url: &str, dest: &Path, progress: Box<dyn Fn(f64, String) + Send + Sync>) -> Result<(), DownloadError> {
-        let filename = dest.file_name()
+
+    async fn download(
+        &self,
+        url: &str,
+        dest: &Path,
+        progress: Box<dyn Fn(f64, String) + Send + Sync>,
+    ) -> Result<(), DownloadError> {
+        let filename = dest
+            .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("download.tmp");
 
-        let result = self.rpc_call("aria2.addUri", vec![
-            serde_json::json!([url]),
-            serde_json::json!({
-                "out": filename,
-                "allow-overwrite": true,
-                "auto-file-renaming": false,
-            }),
-        ]).await?;
+        let result = self
+            .rpc_call(
+                "aria2.addUri",
+                vec![
+                    serde_json::json!([url]),
+                    serde_json::json!({
+                        "out": filename,
+                        "allow-overwrite": true,
+                        "auto-file-renaming": false,
+                    }),
+                ],
+            )
+            .await?;
 
-        let gid = result.get("result")
+        let gid = result
+            .get("result")
             .and_then(|r| r.as_str())
             .ok_or_else(|| DownloadError::Http("No GID returned".to_string()))?
             .to_string();
 
         loop {
-            let status = self.rpc_call("aria2.tellStatus", vec![
-                serde_json::json!(gid),
-            ]).await?;
+            let status = self
+                .rpc_call("aria2.tellStatus", vec![serde_json::json!(gid)])
+                .await?;
 
             let status_str = status["result"]["status"].as_str().unwrap_or("unknown");
-            let completed: f64 = status["result"]["completedLength"].as_str().unwrap_or("0").parse().unwrap_or(0.0);
-            let total: f64 = status["result"]["totalLength"].as_str().unwrap_or("1").parse().unwrap_or(1.0);
+            let completed: f64 = status["result"]["completedLength"]
+                .as_str()
+                .unwrap_or("0")
+                .parse()
+                .unwrap_or(0.0);
+            let total: f64 = status["result"]["totalLength"]
+                .as_str()
+                .unwrap_or("1")
+                .parse()
+                .unwrap_or(1.0);
 
             match status_str {
                 "complete" => {
                     progress(1.0, "Download complete".to_string());
                     let aria2_path = self.download_dir.join(filename);
                     if aria2_path.as_path() != dest {
-                        tokio::fs::rename(&aria2_path, dest).await
+                        tokio::fs::rename(&aria2_path, dest)
+                            .await
                             .map_err(|e| DownloadError::Io(e.to_string()))?;
                     }
                     return Ok(());
                 }
                 "error" => {
-                    let msg = status["result"]["errorMessage"].as_str().unwrap_or("unknown");
+                    let msg = status["result"]["errorMessage"]
+                        .as_str()
+                        .unwrap_or("unknown");
                     return Err(DownloadError::Http(format!("Download failed: {}", msg)));
                 }
                 "removed" => {

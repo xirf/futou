@@ -238,7 +238,12 @@ impl RpcResponse {
         }
     }
 
-    pub fn error_with_data(id: u64, code: i32, message: impl Into<String>, data: serde_json::Value) -> Self {
+    pub fn error_with_data(
+        id: u64,
+        code: i32,
+        message: impl Into<String>,
+        data: serde_json::Value,
+    ) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
             id,
@@ -253,7 +258,12 @@ impl RpcResponse {
 }
 
 impl RpcNotification {
-    pub fn progress(task_id: impl Into<String>, stage: impl Into<String>, progress: f64, message: impl Into<String>) -> Self {
+    pub fn progress(
+        task_id: impl Into<String>,
+        stage: impl Into<String>,
+        progress: f64,
+        message: impl Into<String>,
+    ) -> Self {
         Self {
             jsonrpc: "2.0".to_string(),
             method: "progress".to_string(),

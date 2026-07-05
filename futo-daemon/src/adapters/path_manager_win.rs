@@ -3,9 +3,9 @@ use std::os::windows::ffi::OsStrExt;
 use std::path::Path;
 
 use futou_core::ports::path_manager::{PathError, PathManager};
+use windows_sys::Win32::UI::WindowsAndMessaging::*;
 use winreg::enums::*;
 use winreg::RegKey;
-use windows_sys::Win32::UI::WindowsAndMessaging::*;
 
 pub struct WindowsPathManager;
 
@@ -16,7 +16,8 @@ impl WindowsPathManager {
 
     fn current_path() -> Result<Vec<String>, PathError> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let env = hkcu.open_subkey_with_flags("Environment", KEY_READ | KEY_WRITE)
+        let env = hkcu
+            .open_subkey_with_flags("Environment", KEY_READ | KEY_WRITE)
             .map_err(|e| PathError::Registry(e.to_string()))?;
 
         let value: String = env.get_value("PATH").unwrap_or_default();
@@ -25,7 +26,8 @@ impl WindowsPathManager {
 
     fn set_path(paths: &[String]) -> Result<(), PathError> {
         let hkcu = RegKey::predef(HKEY_CURRENT_USER);
-        let env = hkcu.open_subkey_with_flags("Environment", KEY_READ | KEY_WRITE)
+        let env = hkcu
+            .open_subkey_with_flags("Environment", KEY_READ | KEY_WRITE)
             .map_err(|e| PathError::Registry(e.to_string()))?;
 
         let new_path = paths.join(";");

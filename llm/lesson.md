@@ -52,3 +52,11 @@ One pipe instance = one client. Tauri fires concurrent commands.
 Adding `version_dir` to `Installation` broke all existing `state.json` files at runtime.
 **Rule:** Every new `serde` field on a persisted type gets `#[serde(default)]`. Old disk state won't have it.
 **File:** `futo-core/src/domain/runtime.rs`
+
+## TODO (backlog)
+- Bundle `futou-cli.exe` in the installer alongside the GUI and daemon
+- Register CLI in system PATH during install
+- Log panel: tail server process stdout/stderr live
+- .bat shims for postgres/mariadb should include init scripts (mysql_install_db, initdb)
+- Config button: for PHP, auto-copy php.ini-development → php.ini if missing
+- aria2c resolution: `Path::exists()` on Windows needs `.exe` suffix check
