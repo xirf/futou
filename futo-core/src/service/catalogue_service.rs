@@ -44,7 +44,7 @@ impl CatalogueService {
     }
 
     pub async fn refresh(&self) -> Result<bool, CatalogueServiceError> {
-        let _ = self.source.fetch().await?;
+        self.source.refresh().await?;
         Ok(true)
     }
 }

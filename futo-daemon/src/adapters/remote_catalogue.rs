@@ -1,4 +1,5 @@
 use std::path::PathBuf;
+use std::time::Duration;
 
 use futou_core::ports::catalogue_source::{CatalogueError, CatalogueSource, VersionUrls};
 use futou_ipc::catalogue::CatalogueManifest;
@@ -20,27 +21,48 @@ impl RemoteCatalogueSource {
         }
     }
 
-    async fn load_manifest(&self) -> Result<CatalogueManifest, CatalogueError> {
-        if let Ok(cached) = tokio::fs::read_to_string(&self.cache_path).await {
-            if let Ok(manifest) = serde_json::from_str(&cached) {
-                return Ok(manifest);
-            }
-        }
+    async fn try_cache(&self) -> Option<CatalogueManifest> {
+        let cached = tokio::fs::read_to_string(&self.cache_path).await.ok()?;
+        serde_json::from_str(&cached).ok()
+    }
 
-        match self.fetch_remote().await {
-            Ok(manifest) => {
+    async fn try_bundle(&self) -> Result<CatalogueManifest, CatalogueError> {
+        let bundled = tokio::fs::read_to_string(&self.bundle_path)
+            .await
+            .map_err(|_| CatalogueError::Network("No catalogue available".to_string()))?;
+        serde_json::from_str(&bundled)
+            .map_err(|e| CatalogueError::Network(format!("Bundle parse error: {}", e)))
+    }
+
+    async fn fetch_and_cache(&self) -> Result<CatalogueManifest, CatalogueError> {
+        match tokio::time::timeout(Duration::from_secs(8), self.fetch_remote()).await {
+            Ok(Ok(manifest)) => {
                 if let Ok(json) = serde_json::to_string_pretty(&manifest) {
                     let _ = tokio::fs::create_dir_all(self.cache_path.parent().unwrap()).await;
                     let _ = tokio::fs::write(&self.cache_path, &json).await;
                 }
                 Ok(manifest)
             }
+            _ => Err(CatalogueError::Network("remote unavailable".into())),
+        }
+    }
+
+    async fn load_manifest(&self, force_remote: bool) -> Result<CatalogueManifest, CatalogueError> {
+        if !force_remote {
+            if let Some(cached) = self.try_cache().await {
+                return Ok(cached);
+            }
+        }
+
+        match self.fetch_and_cache().await {
+            Ok(manifest) => Ok(manifest),
             Err(_) => {
-                let bundled = tokio::fs::read_to_string(&self.bundle_path)
-                    .await
-                    .map_err(|_| CatalogueError::Network("No catalogue available".to_string()))?;
-                serde_json::from_str(&bundled)
-                    .map_err(|e| CatalogueError::Network(format!("Bundle parse error: {}", e)))
+                if force_remote {
+                    if let Some(cached) = self.try_cache().await {
+                        return Ok(cached);
+                    }
+                }
+                self.try_bundle().await
             }
         }
     }
@@ -66,7 +88,11 @@ impl RemoteCatalogueSource {
 #[async_trait::async_trait]
 impl CatalogueSource for RemoteCatalogueSource {
     async fn fetch(&self) -> Result<CatalogueManifest, CatalogueError> {
-        self.load_manifest().await
+        self.load_manifest(false).await
+    }
+
+    async fn refresh(&self) -> Result<CatalogueManifest, CatalogueError> {
+        self.load_manifest(true).await
     }
 
     async fn fetch_version_urls(
@@ -74,7 +100,7 @@ impl CatalogueSource for RemoteCatalogueSource {
         runtime: &str,
         version: &str,
     ) -> Result<VersionUrls, CatalogueError> {
-        let manifest = self.load_manifest().await?;
+        let manifest = self.load_manifest(false).await?;
 
         let entry = manifest
             .runtimes

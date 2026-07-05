@@ -3,6 +3,9 @@ use futou_ipc::catalogue::CatalogueManifest;
 #[async_trait::async_trait]
 pub trait CatalogueSource: Send + Sync {
     async fn fetch(&self) -> Result<CatalogueManifest, CatalogueError>;
+    async fn refresh(&self) -> Result<CatalogueManifest, CatalogueError> {
+        self.fetch().await
+    }
     async fn fetch_version_urls(
         &self,
         runtime: &str,
