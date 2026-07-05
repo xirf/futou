@@ -112,8 +112,15 @@ async fn runtime_deactivate(runtime: String) -> Result<String, String> {
 }
 
 #[tauri::command]
-async fn runtime_start(runtime: String, version: String) -> Result<String, String> {
-    let params = serde_json::json!({ "runtime": runtime, "version": version });
+async fn runtime_start(
+    runtime: String,
+    version: String,
+    document_root: Option<String>,
+) -> Result<String, String> {
+    let mut params = serde_json::json!({ "runtime": runtime, "version": version });
+    if let Some(dr) = document_root {
+        params["document_root"] = serde_json::Value::String(dr);
+    }
     send_rpc("runtime.start", Some(params)).await
 }
 
@@ -154,6 +161,8 @@ async fn find_config(runtime: String, version_dir: String) -> Result<Option<Stri
         "php" => &["php.ini", "php.ini-development"],
         "mariadb" | "mysql" => &["my.ini", "my.cnf"],
         "postgresql" => &["postgresql.conf"],
+        "apache" => return check_config(&dir.join("data").join("conf"), "httpd.conf"),
+        "nginx" => return check_config(&dir.join("data").join("conf"), "nginx.conf"),
         _ => return Ok(None),
     };
     for c in candidates {
@@ -171,6 +180,15 @@ async fn find_config(runtime: String, version_dir: String) -> Result<Option<Stri
         }
     }
     Ok(None)
+}
+
+fn check_config(dir: &std::path::Path, name: &str) -> Result<Option<String>, String> {
+    let p = dir.join(name);
+    if p.exists() {
+        Ok(Some(p.to_string_lossy().to_string()))
+    } else {
+        Ok(None)
+    }
 }
 
 #[tauri::command]

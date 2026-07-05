@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
-import { I18nProvider } from "./i18n";
+import { toast, Toaster } from "sonner";
+import { I18nProvider, useTranslation } from "./i18n";
 import { useRuntimes } from "./hooks/useRuntimes";
 import { useCatalogue } from "./hooks/useCatalogue";
 import { useInstall } from "./hooks/useInstall";
@@ -12,6 +13,7 @@ import { SettingsPanel } from "./components/SettingsPanel";
 import { WindowControls } from "./components/WindowControls";
 
 function App() {
+  const { t } = useTranslation();
   const { runtimes, fetchRuntimes } = useRuntimes();
   const { catalogue, fetchCatalogue } = useCatalogue();
 
@@ -56,7 +58,7 @@ function App() {
           /* still starting */
         }
       }
-      alert("Daemon gagal start");
+      toast.error(t("daemon.failedStart"));
     }
     await new Promise((r) => setTimeout(r, 500));
     checkDaemon();
@@ -86,7 +88,7 @@ function App() {
   async function handleUninstall(runtime: string, version: string) {
     if (
       !window.confirm(
-        `Uninstall ${runtime} ${version}?\n\nThis will delete all files and cannot be undone.`,
+        t("confirm.uninstall", { runtime, version }),
       )
     )
       return;
@@ -156,6 +158,7 @@ function App() {
 export default function WrappedApp() {
   return (
     <I18nProvider>
+      <Toaster position="bottom-right" richColors closeButton />
       <App />
     </I18nProvider>
   );

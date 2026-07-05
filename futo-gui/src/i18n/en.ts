@@ -43,6 +43,18 @@ const en: Record<string, string> = {
 
   "daemon.failedStart": "Daemon failed to start",
   "daemon.starting": "Starting daemon...",
+
+  "error.activate": "Failed to activate {runtime}: {error}",
+  "error.deactivate": "Failed to deactivate {runtime}: {error}",
+  "error.start": "Failed to start {runtime}: {error}",
+  "error.stop": "Failed to stop {runtime}: {error}",
+  "error.switch": "Failed to switch {runtime}: {error}",
+  "error.open": "Failed to open: {error}",
+  "error.generic": "Error: {error}",
+
+  "confirm.switchDb": "Switching {runtime} from {from} to {to}.\n\nThe server will be stopped.\n{runtimeUpper} is a database — different versions may cause data incompatibility.\nContinue?",
+  "confirm.switch": "Switching {runtime} from {from} to {to}.\n\nThe server will be stopped and reactivated with the new version.\nContinue?",
+  "confirm.uninstall": "Uninstall {runtime} {version}?\n\nThis will delete all files and cannot be undone.",
 };
 
 export default en;

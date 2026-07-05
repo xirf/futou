@@ -170,19 +170,9 @@
       "display_name": "Apache",
       "description": "Apache HTTP Server (Apache Lounge)",
       "versions": {
-        "2.4.63": {
+        "2.4.66": {
           "url": {
-            "windows-amd64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.63-250407-win64-VS17.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": "Apache24/bin"
-        },
-        "2.4.62": {
-          "url": {
-            "windows-amd64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.62-240717-win64-VS17.zip"
+            "windows-amd64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.66-251206-win64-VS17.zip"
           },
           "checksum": {
             "windows-amd64": ""

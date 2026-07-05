@@ -1,5 +1,7 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { toast } from "sonner";
+import { useTranslation } from "../i18n";
 import {
   RefreshCw,
   MoreVertical,
@@ -74,6 +76,7 @@ export function ServiceRow({
   const [configPath, setConfigPath] = useState<string | null>(null);
   const [docRootPrompt, setDocRootPrompt] = useState(false);
   const [docRoot, setDocRoot] = useState(() => loadDocRoot(r.runtime));
+  const { t } = useTranslation();
 
   useEffect(() => {
     const vd = r.version_dir ?? r.path;
@@ -94,7 +97,7 @@ export function ServiceRow({
         });
       }
     } catch (e) {
-      alert(`Gagal ${on ? "activate" : "deactivate"} ${r.runtime}: ${e}`);
+      toast.error(t(on ? "error.activate" : "error.deactivate", { runtime: r.runtime, error: String(e) }));
     }
     onToggleDone();
   }
@@ -119,7 +122,7 @@ export function ServiceRow({
       if (root) saveDocRoot(r.runtime, root);
       setDocRootPrompt(false);
     } catch (e) {
-      alert(`Gagal start ${r.runtime}: ${e}`);
+      toast.error(t("error.start", { runtime: r.runtime, error: String(e) }));
     }
     onToggleDone();
   }
@@ -128,7 +131,7 @@ export function ServiceRow({
     try {
       await invoke("runtime_stop", { runtime: r.runtime });
     } catch (e) {
-      alert(`Gagal stop ${r.runtime}: ${e}`);
+      toast.error(t("error.stop", { runtime: r.runtime, error: String(e) }));
     }
     onToggleDone();
   }
@@ -137,9 +140,12 @@ export function ServiceRow({
     if (newVersion === r.version) return;
     if (isRunning) {
       const isDb = DB_RUNTIMES.has(r.runtime);
-      const question = isDb
-        ? `Mengganti versi ${r.runtime} dari ${r.version} ke ${newVersion}.\n\nServer akan dihentikan.\n${r.runtime.toUpperCase()} adalah database — versi berbeda bisa menyebabkan ketidakcocokan data.\nLanjutkan?`
-        : `Mengganti versi ${r.runtime} dari ${r.version} ke ${newVersion}.\n\nServer akan dihentikan dan diaktifkan kembali dengan versi baru.\nLanjutkan?`;
+      const question = t(isDb ? "confirm.switchDb" : "confirm.switch", {
+        runtime: r.runtime,
+        from: r.version,
+        to: newVersion,
+        runtimeUpper: r.runtime.toUpperCase(),
+      });
       if (!window.confirm(question)) return;
     }
     try {
@@ -149,7 +155,7 @@ export function ServiceRow({
         version: newVersion,
       });
     } catch (e) {
-      alert(`Gagal mengganti versi ${r.runtime}: ${e}`);
+      toast.error(t("error.switch", { runtime: r.runtime, error: String(e) }));
     }
     onVersionSwitchDone();
   }
@@ -291,7 +297,7 @@ export function ServiceRow({
                     try {
                       await invoke("open_file", { path: configPath });
                     } catch (e) {
-                      alert(`${e}`);
+                      toast.error(t("error.open", { error: String(e) }));
                     }
                   }
                   onMenuToggle();
@@ -307,7 +313,7 @@ export function ServiceRow({
                   try {
                     await invoke("open_dir", { path: dir });
                   } catch (e) {
-                    alert(`${e}`);
+                    toast.error(t("error.open", { error: String(e) }));
                   }
                   onMenuToggle();
                 }}

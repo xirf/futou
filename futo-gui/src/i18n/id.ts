@@ -43,6 +43,18 @@ const id: Record<string, string> = {
 
   "daemon.failedStart": "Daemon gagal start",
   "daemon.starting": "Memulai daemon...",
+
+  "error.activate": "Gagal aktivasi {runtime}: {error}",
+  "error.deactivate": "Gagal deaktivasi {runtime}: {error}",
+  "error.start": "Gagal start {runtime}: {error}",
+  "error.stop": "Gagal stop {runtime}: {error}",
+  "error.switch": "Gagal mengganti versi {runtime}: {error}",
+  "error.open": "Gagal membuka: {error}",
+  "error.generic": "Error: {error}",
+
+  "confirm.switchDb": "Mengganti versi {runtime} dari {from} ke {to}.\n\nServer akan dihentikan.\n{runtimeUpper} adalah database — versi berbeda bisa menyebabkan ketidakcocokan data.\nLanjutkan?",
+  "confirm.switch": "Mengganti versi {runtime} dari {from} ke {to}.\n\nServer akan dihentikan dan diaktifkan kembali dengan versi baru.\nLanjutkan?",
+  "confirm.uninstall": "Hapus {runtime} {version}?\n\nSemua file akan dihapus dan tidak bisa dikembalikan.",
 };
 
 export default id;
