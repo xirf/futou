@@ -252,7 +252,9 @@ impl ProcessManager for WindowsProcessManager {
                 let server_root = bin_dir
                     .parent()
                     .ok_or_else(|| ProcessError::Io("invalid Apache bin_dir".into()))?;
-                generate_apache_config(server_root, &conf_dir, doc_root)?;
+                if !conf_dir.join("httpd.conf").exists() {
+                    generate_apache_config(server_root, &conf_dir, doc_root)?;
+                }
 
                 let exe = bin_dir.join("httpd.exe");
                 if !exe.exists() {
@@ -293,7 +295,9 @@ impl ProcessManager for WindowsProcessManager {
                 let conf_dir = data_dir.join("conf");
                 let _ = std::fs::create_dir_all(data_dir.join("logs"));
                 let _ = std::fs::create_dir_all(bin_dir.join("logs"));
-                generate_nginx_config(&conf_dir, doc_root)?;
+                if !conf_dir.join("nginx.conf").exists() {
+                    generate_nginx_config(&conf_dir, doc_root)?;
+                }
 
                 let exe = bin_dir.join("nginx.exe");
                 if !exe.exists() {
