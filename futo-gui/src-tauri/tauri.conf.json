@@ -1,10 +1,10 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
   "productName": "Futou",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "identifier": "id.andka.futou",
   "build": {
-    "beforeBuildCommand": "cargo build --release -p futou-daemon --manifest-path ../Cargo.toml && mkdir src-tauri\\bin 2>nul & copy /Y ..\\target\\release\\futou-daemon.exe src-tauri\\bin\\futou-daemon-x86_64-pc-windows-msvc.exe && bun run build",
+    "beforeBuildCommand": "cargo build --release -p futou-cli -p futou-daemon --manifest-path ../Cargo.toml && mkdir src-tauri\\bin 2>nul & copy /Y ..\\target\\release\\futou-daemon.exe src-tauri\\bin\\futou-daemon.exe & copy /Y ..\\target\\release\\futou-daemon.exe src-tauri\\bin\\futou-daemon-x86_64-pc-windows-msvc.exe & copy /Y ..\\target\\release\\futou.exe src-tauri\\bin\\futou.exe & copy /Y ..\\target\\release\\futou.exe src-tauri\\bin\\futou-x86_64-pc-windows-msvc.exe && bun run build",
     "frontendDist": "../dist",
     "devUrl": "http://localhost:1420"
   },
@@ -34,7 +34,8 @@
       "assets/icons/icon.ico"
     ],
     "externalBin": [
-      "bin/futou-daemon"
+      "bin/futou-daemon",
+      "bin/futou"
     ],
     "windows": {
       "nsis": {
