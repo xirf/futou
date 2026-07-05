@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { I18nProvider } from "./i18n";
 import { useRuntimes } from "./hooks/useRuntimes";
 import { useCatalogue } from "./hooks/useCatalogue";
 import { useInstall } from "./hooks/useInstall";
@@ -7,12 +8,14 @@ import { Header } from "./components/Header";
 import { ServiceList } from "./components/ServiceList";
 import { LogPanel } from "./components/LogPanel";
 import { AddServiceModal } from "./components/AddServiceModal";
+import { SettingsPanel } from "./components/SettingsPanel";
 
 function App() {
   const { runtimes, fetchRuntimes } = useRuntimes();
   const { catalogue, fetchCatalogue } = useCatalogue();
 
   const [modalOpen, setModalOpen] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [selectedLog, setSelectedLog] = useState<string | null>(null);
   const [openMenu, setOpenMenu] = useState<string | null>(null);
   const [daemonRunning, setDaemonRunning] = useState(false);
@@ -35,13 +38,22 @@ function App() {
 
   async function toggleDaemon() {
     if (daemonRunning) {
-      try { await invoke("daemon_shutdown"); } catch { /* gone already */ }
+      try {
+        await invoke("daemon_shutdown");
+      } catch {
+        /* gone already */
+      }
     } else {
       await invoke("daemon_start");
-      // Wait for daemon to start, then retry connection
       for (let i = 0; i < 10; i++) {
         await new Promise((r) => setTimeout(r, 400));
-        try { await invoke("daemon_status"); setDaemonRunning(true); return; } catch { /* still starting */ }
+        try {
+          await invoke("daemon_status");
+          setDaemonRunning(true);
+          return;
+        } catch {
+          /* still starting */
+        }
       }
       alert("Daemon gagal start");
     }
@@ -76,6 +88,14 @@ function App() {
     setOpenMenu(null);
   }
 
+  if (showSettings) {
+    return (
+      <div className="max-w-[760px] mx-auto pb-[60px] pt-6">
+        <SettingsPanel onClose={() => setShowSettings(false)} />
+      </div>
+    );
+  }
+
   const activeCount = runtimes.filter((r) => r.status === "active").length;
 
   return (
@@ -86,6 +106,7 @@ function App() {
         daemonRunning={daemonRunning}
         onAdd={() => setModalOpen(true)}
         onToggleDaemon={toggleDaemon}
+        onSettings={() => setShowSettings(true)}
       />
 
       <ServiceList
@@ -114,4 +135,10 @@ function App() {
   );
 }
 
-export default App;
+export default function WrappedApp() {
+  return (
+    <I18nProvider>
+      <App />
+    </I18nProvider>
+  );
+}

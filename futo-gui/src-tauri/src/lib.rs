@@ -2,11 +2,48 @@ use futou_ipc::messages::RpcRequest;
 use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::windows::named_pipe::ClientOptions;
 
+fn data_dir() -> std::path::PathBuf {
+    let base = std::env::var("APPDATA")
+        .or_else(|_| std::env::var("USERPROFILE"))
+        .unwrap_or_else(|_| ".".to_string());
+    std::path::PathBuf::from(base).join(".futou")
+}
+
+fn settings_path() -> std::path::PathBuf {
+    data_dir().join("settings.json")
+}
+
+fn read_settings() -> serde_json::Value {
+    let path = settings_path();
+    if path.exists() {
+        if let Ok(content) = std::fs::read_to_string(&path) {
+            if let Ok(v) = serde_json::from_str(&content) {
+                return v;
+            }
+        }
+    }
+    serde_json::json!({
+        "install_dir": data_dir().to_string_lossy(),
+    })
+}
+
+fn write_settings(v: &serde_json::Value) -> Result<(), String> {
+    let dir = data_dir();
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    std::fs::write(
+        settings_path(),
+        serde_json::to_string_pretty(v).map_err(|e| e.to_string())?,
+    )
+    .map_err(|e| e.to_string())
+}
+
 fn start_daemon() {
     let Some(dir) = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
-    else { return };
+    else {
+        return;
+    };
 
     let names = [
         "futou-daemon.exe",
@@ -125,7 +162,6 @@ async fn find_config(runtime: String, version_dir: String) -> Result<Option<Stri
             return Ok(Some(p.to_string_lossy().to_string()));
         }
     }
-    // For postgres, also check data dir
     if runtime == "postgresql" {
         for c in candidates {
             let p = dir.join("data").join(c);
@@ -148,6 +184,106 @@ async fn runtime_install_status(task_id: String) -> Result<String, String> {
     send_rpc("runtime.install.status", Some(params)).await
 }
 
+// ── Settings commands ──
+
+#[tauri::command]
+fn get_config() -> Result<String, String> {
+    Ok(read_settings().to_string())
+}
+
+#[tauri::command]
+fn set_install_location(path: String) -> Result<(), String> {
+    let mut settings = read_settings();
+    settings["install_dir"] = serde_json::Value::String(path);
+    write_settings(&settings)
+}
+
+#[tauri::command]
+fn get_autostart() -> Result<bool, String> {
+    let output = std::process::Command::new("reg")
+        .args([
+            "query",
+            r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+            "/v",
+            "FutouDaemon",
+        ])
+        .output()
+        .map_err(|e| format!("Failed to query registry: {}", e))?;
+    Ok(output.status.success())
+}
+
+#[tauri::command]
+fn set_autostart(enabled: bool) -> Result<(), String> {
+    if enabled {
+        let exe_dir = std::env::current_exe()
+            .map_err(|e| e.to_string())?
+            .parent()
+            .map(|d| d.to_path_buf())
+            .unwrap_or_else(|| std::path::PathBuf::from("."));
+
+        let daemon = exe_dir.join("futou-daemon.exe");
+        let target = if daemon.exists() {
+            daemon
+        } else {
+            exe_dir.join("futou-daemon-x86_64-pc-windows-msvc.exe")
+        };
+        let value = format!("\"{}\"", target.to_string_lossy());
+
+        std::process::Command::new("reg")
+            .args([
+                "add",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                "FutouDaemon",
+                "/t",
+                "REG_SZ",
+                "/d",
+                &value,
+                "/f",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to set autostart: {}", e))?;
+    } else {
+        std::process::Command::new("reg")
+            .args([
+                "delete",
+                r"HKCU\Software\Microsoft\Windows\CurrentVersion\Run",
+                "/v",
+                "FutouDaemon",
+                "/f",
+            ])
+            .output()
+            .map_err(|e| format!("Failed to remove autostart: {}", e))?;
+    }
+    Ok(())
+}
+
+#[tauri::command]
+fn pick_dir() -> Result<String, String> {
+    let output = std::process::Command::new("powershell")
+        .args([
+            "-NoProfile",
+            "-Command",
+            r#"
+Add-Type -AssemblyName System.Windows.Forms
+$f = New-Object System.Windows.Forms.FolderBrowserDialog
+$f.Description = 'Select install directory'
+if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.SelectedPath }
+"#,
+        ])
+        .output()
+        .map_err(|e| format!("Failed to open dialog: {}", e))?;
+
+    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
+    if path.is_empty() {
+        Err("No folder selected".into())
+    } else {
+        Ok(path)
+    }
+}
+
+// ── RPC helper ──
+
 async fn send_rpc(method: &str, params: Option<serde_json::Value>) -> Result<String, String> {
     let path = r"\\.\pipe\futou";
     let mut client = ClientOptions::new()
@@ -164,14 +300,18 @@ async fn send_rpc(method: &str, params: Option<serde_json::Value>) -> Result<Str
     let mut json = serde_json::to_string(&request).map_err(|e| e.to_string())?;
     json.push('\n');
 
-    client.write_all(json.as_bytes()).await
+    client
+        .write_all(json.as_bytes())
+        .await
         .map_err(|e| format!("Write error: {}", e))?;
 
     let (reader, _writer) = tokio::io::split(client);
     let mut buf_reader = BufReader::new(reader);
     let mut line = String::new();
 
-    buf_reader.read_line(&mut line).await
+    buf_reader
+        .read_line(&mut line)
+        .await
         .map_err(|e| format!("Read error: {}", e))?;
 
     Ok(line.trim().to_string())
@@ -208,6 +348,11 @@ pub fn run() {
             open_file,
             find_config,
             catalogue_list,
+            get_config,
+            set_install_location,
+            get_autostart,
+            set_autostart,
+            pick_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
