@@ -390,17 +390,21 @@ async fn handle_runtime_start(
         serde_json::from_value(request.params.clone().unwrap_or_default())
             .map_err(|e| RpcResponse::error(id, error_codes::INVALID_PARAMS, e.to_string()))?;
 
-    info!("runtime.start: {} {}", params.runtime, params.version);
+    info!(
+        "runtime.start: {} {} doc_root={:?}",
+        params.runtime, params.version, params.document_root
+    );
 
     let lock = ctx.read().await;
     let runtime_name = params.runtime.clone();
     let version_str = params.version.clone();
     let runtime = RuntimeName(params.runtime);
     let version = Version(params.version);
+    let doc_root = params.document_root.as_deref().map(std::path::Path::new);
 
     match lock
         .activation_service
-        .start_process(&runtime, &version)
+        .start_process(&runtime, &version, doc_root)
         .await
     {
         Ok(pid) => {

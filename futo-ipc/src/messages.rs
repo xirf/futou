@@ -125,6 +125,8 @@ pub struct DeactivateResult {
 pub struct StartServerParams {
     pub runtime: String,
     pub version: String,
+    #[serde(default)]
+    pub document_root: Option<String>,
 }
 
 #[derive(Debug, Serialize, Deserialize)]

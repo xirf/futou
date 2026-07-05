@@ -1,4 +1,4 @@
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
 use crate::domain::runtime::{InstallStatus, RuntimeName, Version};
@@ -95,6 +95,7 @@ impl ActivationService {
         &self,
         runtime: &RuntimeName,
         version: &Version,
+        document_root: Option<&Path>,
     ) -> Result<u32, ActivationError> {
         let state = self.repository.load().await?;
 
@@ -113,7 +114,7 @@ impl ActivationService {
 
         let pid = self
             .process_manager
-            .start_server(&runtime.0, &bin_dir, &data_dir)
+            .start_server(&runtime.0, &bin_dir, &data_dir, document_root)
             .await
             .map_err(|e| ActivationError::Process(e.to_string()))?;
 

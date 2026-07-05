@@ -2,12 +2,12 @@ use std::path::Path;
 
 #[async_trait::async_trait]
 pub trait ProcessManager: Send + Sync {
-    /// Start a server process, returning the child PID.
     async fn start_server(
         &self,
         runtime: &str,
         bin_dir: &Path,
         data_dir: &Path,
+        document_root: Option<&Path>,
     ) -> Result<u32, ProcessError>;
     /// Kill a process by PID.
     async fn stop_server(&self, pid: u32) -> Result<(), ProcessError>;
