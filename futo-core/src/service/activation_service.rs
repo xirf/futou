@@ -105,7 +105,12 @@ impl ActivationService {
             .clone();
 
         let bin_dir = PathBuf::from(&installation.path);
-        let data_dir = PathBuf::from(&installation.version_dir).join("data");
+        let version_base = if installation.version_dir.is_empty() {
+            &installation.path
+        } else {
+            &installation.version_dir
+        };
+        let data_dir = PathBuf::from(version_base).join("data");
 
         self.process_manager
             .init_data_dir(&runtime.0, &bin_dir, &data_dir)

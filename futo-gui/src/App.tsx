@@ -84,6 +84,12 @@ function App() {
   }, []);
 
   async function handleUninstall(runtime: string, version: string) {
+    if (
+      !window.confirm(
+        `Uninstall ${runtime} ${version}?\n\nThis will delete all files and cannot be undone.`,
+      )
+    )
+      return;
     await invoke("runtime_uninstall", { runtime, version });
     fetchRuntimes();
     setOpenMenu(null);

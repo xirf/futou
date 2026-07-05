@@ -120,6 +120,22 @@ async fn cmd_install(runtime: &str, version: &str) -> Result<String, String> {
 }
 
 async fn cmd_uninstall(runtime: &str, version: &str) -> Result<String, String> {
+    eprintln!(
+        "Warning: This will delete all data for {} {}!",
+        runtime, version
+    );
+    eprint!("Type 'yes' to confirm: ");
+    use std::io::Write;
+    std::io::stderr().flush().ok();
+
+    let mut input = String::new();
+    std::io::stdin()
+        .read_line(&mut input)
+        .map_err(|e| e.to_string())?;
+    if input.trim() != "yes" {
+        return Err("Cancelled".to_string());
+    }
+
     let mut client = connect().await?;
     let params = serde_json::to_value(UninstallParams {
         runtime: runtime.to_string(),

@@ -174,7 +174,9 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
     if let Some(parent) = bundle_path.parent() {
         let _ = tokio::fs::create_dir_all(parent).await;
     }
-    let _ = tokio::fs::write(&bundle_path, bundled).await;
+    if !bundle_path.exists() {
+        let _ = tokio::fs::write(&bundle_path, bundled).await;
+    }
 
     let remote_url =
         "https://raw.githubusercontent.com/xirf/futou/master/catalogue.json".to_string();

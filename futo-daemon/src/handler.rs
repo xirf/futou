@@ -1,3 +1,4 @@
+use serde::Serialize;
 use std::sync::Arc;
 
 use futou_core::domain::runtime::{RuntimeName, Version};
@@ -12,6 +13,21 @@ use futou_ipc::messages::{
 use tracing::{error, info};
 
 use crate::AppContext;
+
+#[allow(clippy::result_large_err)]
+fn json_success<T: Serialize>(id: u64, val: &T) -> Result<RpcResponse, RpcResponse> {
+    match serde_json::to_value(val) {
+        Ok(v) => Ok(RpcResponse::success(id, v)),
+        Err(e) => {
+            error!("serialization error: {}", e);
+            Err(RpcResponse::error(
+                id,
+                error_codes::INTERNAL_ERROR,
+                e.to_string(),
+            ))
+        }
+    }
+}
 
 pub async fn handle_request(
     ctx: &Arc<tokio::sync::RwLock<AppContext>>,
@@ -58,10 +74,7 @@ async fn handle_catalogue_list(
 ) -> Result<RpcResponse, RpcResponse> {
     let lock = ctx.read().await;
     match lock.catalogue_service.list_runtimes().await {
-        Ok(runtimes) => Ok(RpcResponse::success(
-            id,
-            serde_json::to_value(CatalogueListResult { runtimes }).unwrap(),
-        )),
+        Ok(runtimes) => json_success(id, &CatalogueListResult { runtimes }),
         Err(e) => Err(RpcResponse::error(
             id,
             error_codes::CATALOGUE_UNAVAILABLE,
@@ -76,10 +89,7 @@ async fn handle_catalogue_refresh(
 ) -> Result<RpcResponse, RpcResponse> {
     let lock = ctx.read().await;
     match lock.catalogue_service.refresh().await {
-        Ok(updated) => Ok(RpcResponse::success(
-            id,
-            serde_json::to_value(CatalogueRefreshResult { updated }).unwrap(),
-        )),
+        Ok(updated) => json_success(id, &CatalogueRefreshResult { updated }),
         Err(e) => Err(RpcResponse::error(
             id,
             error_codes::CATALOGUE_UNAVAILABLE,
@@ -176,10 +186,7 @@ async fn handle_runtime_install(
         }
     });
 
-    Ok(RpcResponse::success(
-        id,
-        serde_json::to_value(InstallStartedResult { task_id }).unwrap(),
-    ))
+    json_success(id, &InstallStartedResult { task_id })
 }
 
 async fn handle_runtime_install_status(
@@ -202,7 +209,7 @@ async fn handle_runtime_install_status(
     };
 
     match progress {
-        Some(p) => Ok(RpcResponse::success(id, serde_json::to_value(p).unwrap())),
+        Some(p) => json_success(id, &p),
         None => Err(RpcResponse::error(
             id,
             error_codes::INTERNAL_ERROR,
@@ -231,10 +238,7 @@ async fn handle_runtime_uninstall(
                 version: version.to_string(),
                 status: "uninstalled".to_string(),
             };
-            Ok(RpcResponse::success(
-                id,
-                serde_json::to_value(result).unwrap(),
-            ))
+            json_success(id, &result)
         }
         Err(e) => Err(RpcResponse::error(
             id,
@@ -267,10 +271,7 @@ async fn handle_runtime_list(
                 "runtime.list returns {} installed runtimes",
                 installed.len()
             );
-            Ok(RpcResponse::success(
-                id,
-                serde_json::to_value(RuntimeListResult { installed }).unwrap(),
-            ))
+            json_success(id, &RuntimeListResult { installed })
         }
         Err(e) => {
             error!("runtime.list failed: {}", e);
@@ -312,10 +313,7 @@ async fn handle_runtime_activate(
                 version: version.to_string(),
                 status: "active".to_string(),
             };
-            Ok(RpcResponse::success(
-                id,
-                serde_json::to_value(result).unwrap(),
-            ))
+            json_success(id, &result)
         }
         Err(e) => {
             error!("runtime.activate failed: {} {}: {}", runtime, version, e);
@@ -360,10 +358,7 @@ async fn handle_runtime_deactivate(
                 runtime: runtime.to_string(),
                 status: "deactivated".to_string(),
             };
-            Ok(RpcResponse::success(
-                id,
-                serde_json::to_value(result).unwrap(),
-            ))
+            json_success(id, &result)
         }
         Err(e) => {
             error!("runtime.deactivate failed: {}: {}", runtime, e);
@@ -424,7 +419,7 @@ async fn handle_runtime_start(
                     version: version.to_string(),
                     pid,
                 })
-                .unwrap(),
+                .unwrap_or(serde_json::Value::Null),
             ))
         }
         Err(e) => {
@@ -472,7 +467,7 @@ async fn handle_runtime_stop(
                     runtime: runtime.to_string(),
                     status: "stopped".to_string(),
                 })
-                .unwrap(),
+                .unwrap_or(serde_json::Value::Null),
             ))
         }
         Err(e) => {
@@ -512,10 +507,7 @@ async fn handle_runtime_logs(
         })
         .collect();
 
-    Ok(RpcResponse::success(
-        id,
-        serde_json::to_value(LogsResult { entries }).unwrap(),
-    ))
+    json_success(id, &LogsResult { entries })
 }
 
 async fn handle_runtime_active(
@@ -524,13 +516,12 @@ async fn handle_runtime_active(
 ) -> Result<RpcResponse, RpcResponse> {
     let lock = ctx.read().await;
     match lock.env_service.status().await {
-        Ok(status) => Ok(RpcResponse::success(
+        Ok(status) => json_success(
             id,
-            serde_json::to_value(ActiveResult {
+            &ActiveResult {
                 active: status.active,
-            })
-            .unwrap(),
-        )),
+            },
+        ),
         Err(e) => Err(RpcResponse::error(
             id,
             error_codes::INTERNAL_ERROR,
@@ -544,11 +535,13 @@ async fn handle_daemon_status(
     id: u64,
 ) -> Result<RpcResponse, RpcResponse> {
     let lock = ctx.read().await;
+    {
+        let mut map = lock.download_progress.write().unwrap();
+        map.retain(|_, p| p.stage != "completed" && p.stage != "failed");
+    }
     let active_tasks = {
         let map = lock.download_progress.read().unwrap();
-        map.values()
-            .filter(|p| p.stage != "completed" && p.stage != "failed")
-            .count() as u32
+        map.len() as u32
     };
     let result = DaemonStatusResult {
         version: env!("CARGO_PKG_VERSION").to_string(),
@@ -556,10 +549,7 @@ async fn handle_daemon_status(
         aria2_running: lock.aria2_available,
         active_tasks,
     };
-    Ok(RpcResponse::success(
-        id,
-        serde_json::to_value(result).unwrap(),
-    ))
+    json_success(id, &result)
 }
 
 async fn handle_daemon_shutdown(
@@ -571,8 +561,5 @@ async fn handle_daemon_shutdown(
     let result = ShutdownResult {
         status: "shutting_down".to_string(),
     };
-    Ok(RpcResponse::success(
-        id,
-        serde_json::to_value(result).unwrap(),
-    ))
+    json_success(id, &result)
 }

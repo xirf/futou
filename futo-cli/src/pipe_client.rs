@@ -3,6 +3,8 @@ use tokio::io::{AsyncBufReadExt, AsyncWriteExt, BufReader};
 use tokio::net::windows::named_pipe::ClientOptions;
 use tokio::sync::broadcast;
 
+const RPC_TIMEOUT: std::time::Duration = std::time::Duration::from_secs(30);
+
 pub struct PipeClient {
     writer: tokio::io::WriteHalf<tokio::net::windows::named_pipe::NamedPipeClient>,
     reader: BufReader<tokio::io::ReadHalf<tokio::net::windows::named_pipe::NamedPipeClient>>,
@@ -58,10 +60,9 @@ impl PipeClient {
         let mut line = String::new();
         loop {
             line.clear();
-            let n = self
-                .reader
-                .read_line(&mut line)
+            let n = tokio::time::timeout(RPC_TIMEOUT, self.reader.read_line(&mut line))
                 .await
+                .map_err(|_| "Request timed out (30s)".to_string())?
                 .map_err(|e| format!("Read error: {}", e))?;
 
             if n == 0 {

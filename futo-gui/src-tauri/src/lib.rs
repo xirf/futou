@@ -309,9 +309,9 @@ async fn send_rpc(method: &str, params: Option<serde_json::Value>) -> Result<Str
     let mut buf_reader = BufReader::new(reader);
     let mut line = String::new();
 
-    buf_reader
-        .read_line(&mut line)
+    tokio::time::timeout(std::time::Duration::from_secs(30), buf_reader.read_line(&mut line))
         .await
+        .map_err(|_| "Request timed out (30s)".to_string())?
         .map_err(|e| format!("Read error: {}", e))?;
 
     Ok(line.trim().to_string())

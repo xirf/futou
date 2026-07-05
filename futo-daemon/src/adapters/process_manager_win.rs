@@ -15,11 +15,11 @@ fn find_exe(bin_dir: &Path, names: &[&str]) -> Option<PathBuf> {
     }
     None
 }
-
 fn data_initialized(data_dir: &Path) -> bool {
-    data_dir.exists() && data_dir.join("mysql").exists()
-        || data_dir.join("ibdata1").exists()
-        || data_dir.join("PG_VERSION").exists()
+    data_dir.exists()
+        && (data_dir.join("mysql").exists()
+            || data_dir.join("ibdata1").exists()
+            || data_dir.join("PG_VERSION").exists())
 }
 
 fn write_config(dir: &Path, name: &str, content: &str) -> Result<(), ProcessError> {
