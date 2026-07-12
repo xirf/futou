@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { toast } from "sonner";
 import { useTranslation } from "../i18n";
 import {
@@ -161,12 +162,12 @@ export function ServiceRow({
   }
 
   async function handleBrowse() {
-    try {
-      const selected = await invoke<string>("pick_dir");
-      if (selected) setDocRoot(selected);
-    } catch {
-      /* cancelled */
-    }
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "Select document root",
+    });
+    if (selected) setDocRoot(selected as string);
   }
 
   return (

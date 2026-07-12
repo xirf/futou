@@ -1,0 +1,27 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  rust:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - run: cargo fmt --check
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - run: cargo test --workspace
+      - run: cargo run -p catalogue-generator -- validate catalogue.json
+      - run: cargo run -p catalogue-generator -- verify catalogue.json catalogue.json.sig futo-daemon/resources/catalogue-public-key.hex
+      - run: cargo run -p catalogue-generator -- verify futo-daemon/resources/bundle.json futo-daemon/resources/bundle.json.sig futo-daemon/resources/catalogue-public-key.hex
+      - run: Compare-Object (Get-Content catalogue.json) (Get-Content futo-daemon/resources/bundle.json) | ForEach-Object { throw "bundled catalogue differs" }
+      - uses: oven-sh/setup-bun@v2
+      - working-directory: futo-gui
+        run: bun install --frozen-lockfile
+      - working-directory: futo-gui
+        run: bun run build

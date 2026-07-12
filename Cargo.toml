@@ -5,4 +5,5 @@ members = [
     "futo-core",
     "futo-daemon",
     "futo-cli",
+    "catalogue-generator",
 ]

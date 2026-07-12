@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { invoke } from "@tauri-apps/api/core";
+import { open } from "@tauri-apps/plugin-dialog";
 import { ArrowLeft, FolderOpen, Save } from "lucide-react";
 import { useTranslation } from "../i18n";
 
@@ -32,12 +33,12 @@ export function SettingsPanel({ onClose }: Props) {
   }, []);
 
   async function handleBrowse() {
-    try {
-      const selected = await invoke<string>("pick_dir");
-      if (selected) setInstallDir(selected);
-    } catch {
-      /* cancelled */
-    }
+    const selected = await open({
+      directory: true,
+      multiple: false,
+      title: "Select install directory",
+    });
+    if (selected) setInstallDir(selected as string);
   }
 
   async function handleSave() {

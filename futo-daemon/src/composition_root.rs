@@ -14,6 +14,7 @@ use futou_core::service::activation_service::ActivationService;
 use futou_core::service::catalogue_service::CatalogueService;
 use futou_core::service::env_service::EnvService;
 use futou_core::service::install_service::InstallService;
+use sha2::{Digest, Sha256};
 
 use crate::adapters::aria2_downloader::Aria2Downloader;
 use crate::adapters::async_extractor::AsyncExtractor;
@@ -26,6 +27,16 @@ use crate::adapters::shim_manager_win::WindowsShimManager;
 use crate::operation_log::OperationLog;
 use std::env;
 use tracing::warn;
+
+fn catalogue_public_key() -> anyhow::Result<[u8; 32]> {
+    let hex = include_str!("../resources/catalogue-public-key.hex").trim();
+    anyhow::ensure!(hex.len() == 64, "catalogue public key must be 32-byte hex");
+    let mut key = [0u8; 32];
+    for (index, pair) in hex.as_bytes().chunks_exact(2).enumerate() {
+        key[index] = u8::from_str_radix(std::str::from_utf8(pair)?, 16)?;
+    }
+    Ok(key)
+}
 
 pub struct AppContext {
     pub catalogue_service: CatalogueService,
@@ -43,6 +54,7 @@ pub struct AppContext {
 }
 
 async fn resolve_aria2c(data_dir: &Path) -> PathBuf {
+    const ARIA2_SHA256: &str = "67d015301eef0b612191212d564c5bb0a14b5b9c4796b76454276a4d28d9b288";
     let bundled = env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.join("aria2c")))
@@ -69,7 +81,7 @@ async fn resolve_aria2c(data_dir: &Path) -> PathBuf {
     let zip_path = data_dir.join("aria2").join("aria2.zip");
 
     let _ = tokio::fs::create_dir_all(data_dir.join("aria2")).await;
-    match download_aria2(download_url, &zip_path).await {
+    match download_aria2(download_url, &zip_path, ARIA2_SHA256).await {
         Ok(()) => {
             if extract_zip(&zip_path, &data_dir.join("aria2")).is_ok() {
                 let _ = tokio::fs::remove_file(&zip_path).await;
@@ -87,14 +99,21 @@ async fn resolve_aria2c(data_dir: &Path) -> PathBuf {
     PathBuf::from("aria2c")
 }
 
-async fn download_aria2(url: &str, dest: &PathBuf) -> Result<(), String> {
+async fn download_aria2(url: &str, dest: &Path, expected_sha256: &str) -> Result<(), String> {
     let resp = reqwest::get(url)
         .await
+        .and_then(reqwest::Response::error_for_status)
         .map_err(|e| format!("HTTP error: {}", e))?;
     let bytes = resp
         .bytes()
         .await
         .map_err(|e| format!("Read error: {}", e))?;
+    let actual_sha256 = format!("{:x}", Sha256::digest(&bytes));
+    if actual_sha256 != expected_sha256 {
+        return Err(format!(
+            "aria2 checksum mismatch: expected {expected_sha256}, got {actual_sha256}"
+        ));
+    }
     tokio::fs::write(dest, &bytes)
         .await
         .map_err(|e| format!("Write error: {}", e))?;
@@ -169,13 +188,21 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
     let state_path = data_dir.join("state.json");
     let repository = Arc::new(FsRepository::new(state_path));
 
-    let bundled = include_str!("../resources/bundle.json");
     let bundle_path = data_dir.join("catalogue").join("bundle.json");
-    if let Some(parent) = bundle_path.parent() {
-        let _ = tokio::fs::create_dir_all(parent).await;
-    }
-    if !bundle_path.exists() {
-        let _ = tokio::fs::write(&bundle_path, bundled).await;
+    let bundle_signature_path = data_dir.join("catalogue").join("bundle.json.sig");
+    for (path, contents) in [
+        (
+            &bundle_path,
+            include_bytes!("../resources/bundle.json").as_slice(),
+        ),
+        (
+            &bundle_signature_path,
+            include_bytes!("../resources/bundle.json.sig").as_slice(),
+        ),
+    ] {
+        if !matches!(tokio::fs::read(path).await.as_deref(), Ok(existing) if existing == contents) {
+            tokio::fs::write(path, contents).await?;
+        }
     }
 
     let remote_url =
@@ -184,6 +211,7 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
         remote_url,
         cache_dir,
         data_dir.join("catalogue"),
+        catalogue_public_key()?,
     ));
 
     let aria2_path = resolve_aria2c(data_dir).await;
@@ -220,6 +248,7 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
         extractor,
         repository.clone(),
         catalogue_source,
+        shim_manager.clone(),
         runtimes_dir,
     );
     let activation_service = ActivationService::new(
@@ -239,9 +268,12 @@ pub async fn build_composition_root(data_dir: &Path) -> anyhow::Result<AppContex
                 .output();
         }
         if !state.pids.is_empty() {
-            let mut state = state;
-            state.pids.clear();
-            let _ = repository.save(&state).await;
+            let _ = repository
+                .update_state(Box::new(|state| {
+                    state.pids.clear();
+                    Ok(())
+                }))
+                .await;
         }
     }
 

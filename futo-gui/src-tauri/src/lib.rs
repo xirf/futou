@@ -37,12 +37,20 @@ fn write_settings(v: &serde_json::Value) -> Result<(), String> {
     .map_err(|e| e.to_string())
 }
 
-fn start_daemon() {
+fn configured_install_dir() -> std::path::PathBuf {
+    read_settings()["install_dir"]
+        .as_str()
+        .filter(|path| !path.trim().is_empty())
+        .map(std::path::PathBuf::from)
+        .unwrap_or_else(data_dir)
+}
+
+fn start_daemon() -> Result<(), String> {
     let Some(dir) = std::env::current_exe()
         .ok()
         .and_then(|p| p.parent().map(|d| d.to_path_buf()))
     else {
-        return;
+        return Err("Cannot resolve GUI executable directory".to_string());
     };
 
     let names = [
@@ -60,10 +68,13 @@ fn start_daemon() {
             }
             cmd.stdout(std::process::Stdio::null());
             cmd.stderr(std::process::Stdio::null());
-            let _ = cmd.spawn();
-            return;
+            cmd.arg("--data-dir").arg(configured_install_dir());
+            cmd.spawn()
+                .map_err(|e| format!("Failed to start daemon: {}", e))?;
+            return Ok(());
         }
     }
+    Err("Daemon executable not found beside GUI".to_string())
 }
 
 #[tauri::command]
@@ -73,8 +84,7 @@ async fn daemon_status() -> Result<String, String> {
 
 #[tauri::command]
 fn daemon_start() -> Result<(), String> {
-    start_daemon();
-    Ok(())
+    start_daemon()
 }
 
 #[tauri::command]
@@ -245,7 +255,11 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
         } else {
             exe_dir.join("futou-daemon-x86_64-pc-windows-msvc.exe")
         };
-        let value = format!("\"{}\"", target.to_string_lossy());
+        let value = format!(
+            "\"{}\" --data-dir \"{}\"",
+            target.to_string_lossy(),
+            configured_install_dir().to_string_lossy()
+        );
 
         std::process::Command::new("reg")
             .args([
@@ -274,30 +288,6 @@ fn set_autostart(enabled: bool) -> Result<(), String> {
             .map_err(|e| format!("Failed to remove autostart: {}", e))?;
     }
     Ok(())
-}
-
-#[tauri::command]
-fn pick_dir() -> Result<String, String> {
-    let output = std::process::Command::new("powershell")
-        .args([
-            "-NoProfile",
-            "-Command",
-            r#"
-Add-Type -AssemblyName System.Windows.Forms
-$f = New-Object System.Windows.Forms.FolderBrowserDialog
-$f.Description = 'Select install directory'
-if ($f.ShowDialog() -eq [System.Windows.Forms.DialogResult]::OK) { $f.SelectedPath }
-"#,
-        ])
-        .output()
-        .map_err(|e| format!("Failed to open dialog: {}", e))?;
-
-    let path = String::from_utf8_lossy(&output.stdout).trim().to_string();
-    if path.is_empty() {
-        Err("No folder selected".into())
-    } else {
-        Ok(path)
-    }
 }
 
 // ── RPC helper ──
@@ -339,7 +329,7 @@ async fn send_rpc(method: &str, params: Option<serde_json::Value>) -> Result<Str
 pub fn run() {
     tauri::Builder::default()
         .setup(|app| {
-            start_daemon();
+            let _ = app.handle().plugin(tauri_plugin_dialog::init());
             if cfg!(debug_assertions) {
                 app.handle().plugin(
                     tauri_plugin_log::Builder::default()
@@ -370,7 +360,6 @@ pub fn run() {
             set_install_location,
             get_autostart,
             set_autostart,
-            pick_dir,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");

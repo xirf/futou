@@ -1,0 +1,48 @@
+{
+  "schema_version": 2,
+  "generated_at": "2026-07-11T00:00:00Z",
+  "runtimes": {
+    "postgresql": {
+      "display_name": "PostgreSQL",
+      "description": "PostgreSQL database server",
+      "provider": "EnterpriseDB",
+      "homepage": "https://www.postgresql.org",
+      "trust_level": "official",
+      "versions": {
+        "17.2": {
+          "archive_type": "zip",
+          "bin_dir": "pgsql\\bin",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-17.2-1-windows-x64-binaries.zip",
+              "sha256": "115eb69fa92430f162bdda2eced073b60fed538715fb3a19ce0bb8c2d8738d01",
+              "provenance_url": "https://www.enterprisedb.com/download-postgresql-binaries",
+              "hash_method": "ci_computed"
+            }
+          }
+        }
+      }
+    },
+    "nginx": {
+      "display_name": "nginx",
+      "description": "HTTP and reverse proxy server",
+      "provider": "F5 nginx",
+      "homepage": "https://nginx.org",
+      "trust_level": "official",
+      "versions": {
+        "1.27.4": {
+          "archive_type": "zip",
+          "bin_dir": "nginx-1.27.4",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://nginx.org/download/nginx-1.27.4.zip",
+              "sha256": "203424f33554ae4b915e08e70ae5ff28ff5696b6a8ac9d57127fca1f1c6ff360",
+              "provenance_url": "https://nginx.org/en/download.html",
+              "hash_method": "ci_computed"
+            }
+          }
+        }
+      }
+    }
+  }
+}

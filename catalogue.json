@@ -1,210 +1,202 @@
 {
+  "schema_version": 2,
+  "generated_at": "2026-07-11T13:07:58.955785300+00:00",
   "runtimes": {
-    "php": {
-      "display_name": "PHP",
-      "description": "PHP: Hypertext Preprocessor",
-      "versions": {
-        "8.4.23": {
-          "url": {
-            "windows-amd64": "https://downloads.php.net/~windows/releases/php-8.4.23-nts-Win32-vs17-x64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": null
-        },
-        "8.3.32": {
-          "url": {
-            "windows-amd64": "https://downloads.php.net/~windows/releases/php-8.3.32-nts-Win32-vs16-x64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": null
-        },
-        "8.2.32": {
-          "url": {
-            "windows-amd64": "https://downloads.php.net/~windows/releases/php-8.2.32-nts-Win32-vs16-x64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": null
-        }
-      }
-    },
     "nodejs": {
       "display_name": "Node.js",
       "description": "JavaScript runtime built on V8",
+      "provider": "OpenJS Foundation",
+      "homepage": "https://nodejs.org",
+      "trust_level": "official",
       "versions": {
-        "22.23.1": {
-          "url": {
-            "windows-amd64": "https://nodejs.org/dist/v22.23.1/node-v22.23.1-win-x64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "24.18.0": {
           "archive_type": "zip",
-          "bin_dir": "node-v22.23.1-win-x64"
+          "bin_dir": "node-v24.18.0-win-x64",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://nodejs.org/dist/v24.18.0/node-v24.18.0-win-x64.zip",
+              "sha256": "0ae68406b42d7725661da979b1403ec9926da205c6770827f33aac9d8f26e821",
+              "provenance_url": "https://nodejs.org/dist/v24.18.0/SHASUMS256.txt",
+              "hash_method": "publisher"
+            }
+          }
         },
-        "20.20.2": {
-          "url": {
-            "windows-amd64": "https://nodejs.org/dist/v20.20.2/node-v20.20.2-win-x64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "26.5.0": {
           "archive_type": "zip",
-          "bin_dir": "node-v20.20.2-win-x64"
+          "bin_dir": "node-v26.5.0-win-x64",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://nodejs.org/dist/v26.5.0/node-v26.5.0-win-x64.zip",
+              "sha256": "d3b2277dbcccfdf24ef6302928f64f484cff1d77a6d3caa3a28f4d20ce9158f6",
+              "provenance_url": "https://nodejs.org/dist/v26.5.0/SHASUMS256.txt",
+              "hash_method": "publisher"
+            }
+          }
         }
       }
     },
-    "mariadb": {
-      "display_name": "MariaDB",
-      "description": "MariaDB database server",
+    "deno": {
+      "display_name": "Deno",
+      "description": "JavaScript and TypeScript runtime",
+      "provider": "Deno Land Inc.",
+      "homepage": "https://deno.com",
+      "trust_level": "official",
       "versions": {
-        "11.4.5": {
-          "url": {
-            "windows-amd64": "https://archive.mariadb.org/mariadb-11.4.5/winx64-packages/mariadb-11.4.5-winx64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "2.9.1": {
           "archive_type": "zip",
-          "bin_dir": "mariadb-11.4.5-winx64/bin"
+          "bin_dir": null,
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://github.com/denoland/deno/releases/download/v2.9.1/deno-x86_64-pc-windows-msvc.zip",
+              "sha256": "ab310b4232cca207d40ffa41867e93aaf9f893802bc76756e74f486a6b21b371",
+              "provenance_url": "https://github.com/denoland/deno/releases/tag/v2.9.1",
+              "hash_method": "publisher"
+            }
+          }
         },
-        "10.11.11": {
-          "url": {
-            "windows-amd64": "https://archive.mariadb.org/mariadb-10.11.11/winx64-packages/mariadb-10.11.11-winx64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "2.9.2": {
           "archive_type": "zip",
-          "bin_dir": "mariadb-10.11.11-winx64/bin"
+          "bin_dir": null,
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://github.com/denoland/deno/releases/download/v2.9.2/deno-x86_64-pc-windows-msvc.zip",
+              "sha256": "5fe194d26ac5ef77fcc5288c2c438c7a0465f3b6180440ebf04092714bf2dcdf",
+              "provenance_url": "https://github.com/denoland/deno/releases/tag/v2.9.2",
+              "hash_method": "publisher"
+            }
+          }
+        }
+      }
+    },
+    "nginx": {
+      "display_name": "nginx",
+      "description": "HTTP and reverse proxy server",
+      "provider": "F5 nginx",
+      "homepage": "https://nginx.org",
+      "trust_level": "official",
+      "versions": {
+        "1.27.4": {
+          "archive_type": "zip",
+          "bin_dir": "nginx-1.27.4",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://nginx.org/download/nginx-1.27.4.zip",
+              "sha256": "203424f33554ae4b915e08e70ae5ff28ff5696b6a8ac9d57127fca1f1c6ff360",
+              "provenance_url": "https://nginx.org/en/download.html",
+              "hash_method": "ci_computed"
+            }
+          }
         }
       }
     },
     "postgresql": {
       "display_name": "PostgreSQL",
       "description": "PostgreSQL database server",
+      "provider": "EnterpriseDB",
+      "homepage": "https://www.postgresql.org",
+      "trust_level": "official",
       "versions": {
         "17.2": {
-          "url": {
-            "windows-amd64": "https://get.enterprisedb.com/postgresql/postgresql-17.2-1-windows-x64-binaries.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
           "archive_type": "zip",
-          "bin_dir": "pgsql\\bin"
-        },
-        "16.6": {
-          "url": {
-            "windows-amd64": "https://get.enterprisedb.com/postgresql/postgresql-16.6-1-windows-x64-binaries.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": "pgsql\\bin"
+          "bin_dir": "pgsql\\bin",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://get.enterprisedb.com/postgresql/postgresql-17.2-1-windows-x64-binaries.zip",
+              "sha256": "115eb69fa92430f162bdda2eced073b60fed538715fb3a19ce0bb8c2d8738d01",
+              "provenance_url": "https://www.enterprisedb.com/download-postgresql-binaries",
+              "hash_method": "ci_computed"
+            }
+          }
         }
       }
     },
-    "python": {
-      "display_name": "Python",
-      "description": "Python programming language (embeddable)",
+    "mariadb": {
+      "display_name": "MariaDB",
+      "description": "MariaDB database server",
+      "provider": "MariaDB Foundation",
+      "homepage": "https://mariadb.org",
+      "trust_level": "official",
       "versions": {
-        "3.13.3": {
-          "url": {
-            "windows-amd64": "https://www.python.org/ftp/python/3.13.3/python-3.13.3-embed-amd64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "12.3.2": {
           "archive_type": "zip",
-          "bin_dir": null
+          "bin_dir": "mariadb-12.3.2-winx64/bin",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/12.3.2/mariadb-12.3.2-winx64.zip",
+              "sha256": "67347c129eb9c5923d002ea34fbfa27c60eb95d36dd73b85af2651cdeceecac5",
+              "provenance_url": "https://downloads.mariadb.org/rest-api/mariadb/12.3/",
+              "hash_method": "publisher"
+            }
+          }
         },
-        "3.12.9": {
-          "url": {
-            "windows-amd64": "https://www.python.org/ftp/python/3.12.9/python-3.12.9-embed-amd64.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "11.8.8": {
           "archive_type": "zip",
-          "bin_dir": null
+          "bin_dir": "mariadb-11.8.8-winx64/bin",
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://downloads.mariadb.org/rest-api/mariadb/11.8.8/mariadb-11.8.8-winx64.zip",
+              "sha256": "20871a79964e1819ddaad9247b676b9d08c958c345e5e3d4748242b2b2965ff1",
+              "provenance_url": "https://downloads.mariadb.org/rest-api/mariadb/11.8/",
+              "hash_method": "publisher"
+            }
+          }
         }
       }
     },
-    "deno": {
-      "display_name": "Deno",
-      "description": "A modern runtime for JavaScript and TypeScript",
+    "php": {
+      "display_name": "PHP",
+      "description": "PHP: Hypertext Preprocessor",
+      "provider": "PHP",
+      "homepage": "https://www.php.net",
+      "trust_level": "official",
       "versions": {
-        "2.3.8": {
-          "url": {
-            "windows-amd64": "https://dl.deno.land/release/v2.3.8/deno-x86_64-pc-windows-msvc.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "8.4.23": {
           "archive_type": "zip",
-          "bin_dir": null
+          "bin_dir": null,
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://downloads.php.net/~windows/releases/php-8.4.23-nts-Win32-vs17-x64.zip",
+              "sha256": "826efa189b21f46314ad497ff31467de9f0953292f42b235542be4feea182b48",
+              "provenance_url": "https://downloads.php.net/~windows/releases/releases.json",
+              "hash_method": "publisher"
+            }
+          }
         },
-        "2.2.11": {
-          "url": {
-            "windows-amd64": "https://dl.deno.land/release/v2.2.11/deno-x86_64-pc-windows-msvc.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "8.3.32": {
           "archive_type": "zip",
-          "bin_dir": null
-        }
-      }
-    },
-    "apache": {
-      "display_name": "Apache",
-      "description": "Apache HTTP Server (Apache Lounge)",
-      "versions": {
-        "2.4.66": {
-          "url": {
-            "windows-amd64": "https://www.apachelounge.com/download/VS17/binaries/httpd-2.4.66-251206-win64-VS17.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": "Apache24/bin"
-        }
-      }
-    },
-    "nginx": {
-      "display_name": "Nginx",
-      "description": "Nginx HTTP and reverse proxy server",
-      "versions": {
-        "1.27.4": {
-          "url": {
-            "windows-amd64": "https://nginx.org/download/nginx-1.27.4.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
-          "archive_type": "zip",
-          "bin_dir": "nginx-1.27.4"
+          "bin_dir": null,
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://downloads.php.net/~windows/releases/php-8.3.32-nts-Win32-vs16-x64.zip",
+              "sha256": "67c724e7b675b50d8f0476d816c3e2a3064ce3a53d572575d63c321cc0a3a6cf",
+              "provenance_url": "https://downloads.php.net/~windows/releases/releases.json",
+              "hash_method": "publisher"
+            }
+          }
         },
-        "1.26.3": {
-          "url": {
-            "windows-amd64": "https://nginx.org/download/nginx-1.26.3.zip"
-          },
-          "checksum": {
-            "windows-amd64": ""
-          },
+        "8.5.8": {
           "archive_type": "zip",
-          "bin_dir": "nginx-1.26.3"
+          "bin_dir": null,
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://downloads.php.net/~windows/releases/php-8.5.8-nts-Win32-vs17-x64.zip",
+              "sha256": "63a3f6493f37c9ff3e288ec16621222a6cda5167dd1abffec0019e7f18c8e7e9",
+              "provenance_url": "https://downloads.php.net/~windows/releases/releases.json",
+              "hash_method": "publisher"
+            }
+          }
+        },
+        "8.2.32": {
+          "archive_type": "zip",
+          "bin_dir": null,
+          "artifacts": {
+            "windows-amd64": {
+              "url": "https://downloads.php.net/~windows/releases/php-8.2.32-nts-Win32-vs16-x64.zip",
+              "sha256": "44e561948d6e336ac91cba3e59f074b687e22d9ceb824056f28ed8dfbbfdbe35",
+              "provenance_url": "https://downloads.php.net/~windows/releases/releases.json",
+              "hash_method": "publisher"
+            }
+          }
         }
       }
     }

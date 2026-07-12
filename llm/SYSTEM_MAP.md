@@ -54,6 +54,12 @@ Windows runtime environment manager. CLI + GUI + daemon over named-pipe JSON-RPC
 - **Deps:** `futo-ipc`, `clap`, `serde`, `serde_json`, `tokio` (full)
 - **Note:** `#![cfg(windows)]` — Windows-only. 30s pipe read timeout.
 
+### catalogue-generator (`catalogue-generator/`) — Maintainer Tool
+- **Purpose:** Builds schema-v2 catalogue snapshots from official provider metadata, validates pinned artifacts, and creates detached Ed25519 signatures.
+- **Runtime discovery:** PHP, Node.js, MariaDB, and Deno use structured upstream APIs; PostgreSQL and Nginx are retained as reviewed pins until stable discovery adapters exist.
+- **Trust boundary:** The signing secret lives only in `CATALOGUE_SIGNING_KEY`; the daemon embeds the corresponding public key.
+- **CI:** Pull requests validate committed snapshots, while the scheduled/manual workflow proposes signed catalogue updates for maintainer review.
+
 ### futo-gui (`futo-gui/`) — Desktop Frontend (Tauri v2)
 - **Purpose:** React 19 + Tailwind v4 + Tauri v2. Connects to daemon via named pipe (thin Rust proxy layer).
 - **Key files:**
@@ -96,16 +102,21 @@ CLI/GUI → runtime.start RPC (with document_root) → handler → ActivationSer
 ### Catalogue fetch
 ```
 Daemon startup → RemoteCatalogueSource::load_manifest()
-  → try cache (cache.json)
-  → try fetch_remote() (GitHub raw URL)
-  → fallback bundle.json (built-in)
+  → verify cache.json + cache.json.sig
+  → fetch and verify remote catalogue.json + detached signature
+  → fallback to signed bundle.json
 ```
+
+Catalogue schema v2 requires an HTTPS artifact URL, lowercase SHA-256, provider
+provenance, and an explicit official/third-party trust level. Unsigned, malformed,
+or checksum-free snapshots fail closed.
 
 ## Key Config Paths
 
 | Path | Purpose |
 |------|---------|
-| `%APPDATA%\.futou\` | Default data dir |
+| `%APPDATA%\.futou\` | GUI settings and default daemon data dir |
+| Configured install location | Daemon data root passed as `--data-dir`; contains runtimes, state, cache, and shims |
 | `config.toml` | Daemon config (created on first run, not read back yet) |
 | `state.json` | Persisted installations, active versions, PIDs |
 | `settings.json` | GUI settings (install_dir, written by SettingsPanel) |
@@ -114,6 +125,9 @@ Daemon startup → RemoteCatalogueSource::load_manifest()
 | `shims\` | `.bat` shim files for active runtimes |
 | `runtimes\<name>\<version>\` | Extracted runtime binaries |
 | `aria2\` | aria2c download dir + PID file |
+
+GUI startup launches the daemon with the configured data root, waits until the
+named pipe answers `daemon.status`, then loads runtimes and catalogue.
 
 ## Web Server Runtime Handling
 

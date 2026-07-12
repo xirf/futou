@@ -54,12 +54,17 @@ impl ActivationService {
             .create_shims(&runtime.0, &version.0, &bin_dir)
             .await?;
 
-        let mut state = self.repository.load().await?;
-        state.set_active(runtime, version);
-        if let Some(inst) = state.find_installation_mut(runtime, version) {
-            inst.status = InstallStatus::Active;
-        }
-        self.repository.save(&state).await?;
+        let runtime = runtime.clone();
+        let version = version.clone();
+        self.repository
+            .update_state(Box::new(move |state| {
+                state.set_active(&runtime, &version);
+                if let Some(inst) = state.find_installation_mut(&runtime, &version) {
+                    inst.status = InstallStatus::Active;
+                }
+                Ok(())
+            }))
+            .await?;
 
         if !self
             .path_manager
@@ -77,15 +82,19 @@ impl ActivationService {
     pub async fn deactivate(&self, runtime: &RuntimeName) -> Result<(), ActivationError> {
         self.shim_manager.remove_shims(&runtime.0).await?;
 
-        let mut state = self.repository.load().await?;
-        if let Some(version_str) = state.active_version(runtime).map(|s| s.to_string()) {
-            let version = Version(version_str);
-            if let Some(inst) = state.find_installation_mut(runtime, &version) {
-                inst.status = InstallStatus::Installed;
-            }
-        }
-        state.remove_active(runtime);
-        self.repository.save(&state).await?;
+        let runtime = runtime.clone();
+        self.repository
+            .update_state(Box::new(move |state| {
+                if let Some(version_str) = state.active_version(&runtime).map(str::to_owned) {
+                    let version = Version(version_str);
+                    if let Some(inst) = state.find_installation_mut(&runtime, &version) {
+                        inst.status = InstallStatus::Installed;
+                    }
+                }
+                state.remove_active(&runtime);
+                Ok(())
+            }))
+            .await?;
 
         Ok(())
     }
@@ -122,9 +131,13 @@ impl ActivationService {
             .await
             .map_err(|e| ActivationError::Process(e.to_string()))?;
 
-        let mut state = self.repository.load().await?;
-        state.set_pid(runtime, pid);
-        self.repository.save(&state).await?;
+        let runtime = runtime.clone();
+        self.repository
+            .update_state(Box::new(move |state| {
+                state.set_pid(&runtime, pid);
+                Ok(())
+            }))
+            .await?;
 
         Ok(pid)
     }
@@ -138,9 +151,13 @@ impl ActivationService {
                 .await
                 .map_err(|e| ActivationError::Process(e.to_string()))?;
 
-            let mut state = self.repository.load().await?;
-            state.remove_pid(runtime);
-            self.repository.save(&state).await?;
+            let runtime = runtime.clone();
+            self.repository
+                .update_state(Box::new(move |state| {
+                    state.remove_pid(&runtime);
+                    Ok(())
+                }))
+                .await?;
         }
 
         Ok(())

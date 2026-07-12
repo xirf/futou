@@ -1,0 +1,45 @@
+name: Catalogue update
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "17 3 * * 1"
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - name: Validate candidate
+        run: cargo run -p catalogue-generator -- generate catalogue.next.json
+      - id: changes
+        name: Detect release changes
+        shell: pwsh
+        run: |
+          $current = (Get-Content -Raw catalogue.json | ConvertFrom-Json).runtimes | ConvertTo-Json -Depth 100 -Compress
+          $next = (Get-Content -Raw catalogue.next.json | ConvertFrom-Json).runtimes | ConvertTo-Json -Depth 100 -Compress
+          "changed=$($current -ne $next)" | Out-File -FilePath $env:GITHUB_OUTPUT -Append
+      - name: Sign candidate
+        if: steps.changes.outputs.changed == 'True'
+        env:
+          CATALOGUE_SIGNING_KEY: ${{ secrets.CATALOGUE_SIGNING_KEY }}
+        run: cargo run -p catalogue-generator -- sign catalogue.next.json catalogue.json.sig
+      - name: Publish candidate files
+        if: steps.changes.outputs.changed == 'True'
+        run: |
+          Move-Item -Force catalogue.next.json catalogue.json
+          Copy-Item -Force catalogue.json futo-daemon/resources/bundle.json
+          Copy-Item -Force catalogue.json.sig futo-daemon/resources/bundle.json.sig
+          cargo run -p catalogue-generator -- verify catalogue.json catalogue.json.sig futo-daemon/resources/catalogue-public-key.hex
+      - uses: peter-evans/create-pull-request@v7
+        if: steps.changes.outputs.changed == 'True'
+        with:
+          branch: bot/catalogue-update
+          commit-message: "chore: update runtime catalogue"
+          title: "chore: update runtime catalogue"
+          body: "Automated catalogue validation and signature refresh. Provider provenance requires maintainer review."

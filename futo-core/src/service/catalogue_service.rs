@@ -59,7 +59,9 @@ pub enum CatalogueServiceError {
 mod tests {
     use super::*;
     use crate::ports::catalogue_source::{CatalogueError, CatalogueSource, VersionUrls};
-    use futou_ipc::catalogue::{CatalogueEntry, CatalogueManifest, VersionEntry};
+    use futou_ipc::catalogue::{
+        CatalogueEntry, CatalogueManifest, TrustLevel, VersionEntry, CATALOGUE_SCHEMA_VERSION,
+    };
     use std::collections::HashMap;
     use std::sync::Arc;
 
@@ -84,10 +86,9 @@ mod tests {
 
     fn version_entry(archive_type: &str) -> VersionEntry {
         VersionEntry {
-            url: HashMap::new(),
-            checksum: HashMap::new(),
             archive_type: archive_type.into(),
             bin_dir: None,
+            artifacts: HashMap::new(),
         }
     }
 
@@ -97,11 +98,16 @@ mod tests {
             vmap.insert(v.to_string(), version_entry("zip"));
         }
         CatalogueManifest {
+            schema_version: CATALOGUE_SCHEMA_VERSION,
+            generated_at: "2026-01-01T00:00:00Z".into(),
             runtimes: HashMap::from([(
                 "test".into(),
                 CatalogueEntry {
                     display_name: "Test Runtime".into(),
                     description: "A test runtime".into(),
+                    provider: "Test".into(),
+                    homepage: "https://example.com".into(),
+                    trust_level: TrustLevel::Official,
                     versions: vmap,
                 },
             )]),
@@ -112,6 +118,8 @@ mod tests {
     async fn empty_catalogue_returns_empty_list() {
         let source = Arc::new(MockCatalogue {
             manifest: CatalogueManifest {
+                schema_version: CATALOGUE_SCHEMA_VERSION,
+                generated_at: "2026-01-01T00:00:00Z".into(),
                 runtimes: HashMap::new(),
             },
         });
@@ -142,6 +150,9 @@ mod tests {
                 CatalogueEntry {
                     display_name: "Z Runtime".into(),
                     description: "".into(),
+                    provider: "Test".into(),
+                    homepage: "https://example.com".into(),
+                    trust_level: TrustLevel::Official,
                     versions: HashMap::from([("1.0.0".into(), version_entry("zip"))]),
                 },
             ),
@@ -150,12 +161,19 @@ mod tests {
                 CatalogueEntry {
                     display_name: "A Runtime".into(),
                     description: "".into(),
+                    provider: "Test".into(),
+                    homepage: "https://example.com".into(),
+                    trust_level: TrustLevel::Official,
                     versions: HashMap::from([("2.0.0".into(), version_entry("zip"))]),
                 },
             ),
         ]);
         let source = Arc::new(MockCatalogue {
-            manifest: CatalogueManifest { runtimes },
+            manifest: CatalogueManifest {
+                schema_version: CATALOGUE_SCHEMA_VERSION,
+                generated_at: "2026-01-01T00:00:00Z".into(),
+                runtimes,
+            },
         });
         let svc = CatalogueService::new(source);
         let result = svc.list_runtimes().await.unwrap();

@@ -10,11 +10,22 @@ pub struct WindowsShimManager {
 const EXECUTABLE_EXTENSIONS: &[&str] = &["exe", "bat", "cmd", "com"];
 
 fn is_executable(name: &std::ffi::OsStr) -> bool {
-    let name = name.to_string_lossy();
-    let lower = name.to_lowercase();
+    let lower = name.to_string_lossy().to_lowercase();
     EXECUTABLE_EXTENSIONS
         .iter()
         .any(|ext| lower.ends_with(&format!(".{}", ext)) || lower == *ext)
+}
+
+fn shim_stem(filename: &std::ffi::OsStr) -> String {
+    let name = filename.to_string_lossy();
+    let lower = name.to_lowercase();
+    for ext in EXECUTABLE_EXTENSIONS {
+        let dot_ext = format!(".{}", ext);
+        if lower.ends_with(&dot_ext) {
+            return name[..name.len() - dot_ext.len()].to_string();
+        }
+    }
+    name.to_string()
 }
 
 fn manifest_path(shim_dir: &Path) -> PathBuf {
@@ -63,9 +74,16 @@ impl ShimManager for WindowsShimManager {
         let key = format!("{}/{}", runtime, version);
         let mut manifest = load_manifest(&self.shim_dir);
 
-        if let Some(old_files) = manifest.remove(runtime) {
-            for f in &old_files {
-                let _ = std::fs::remove_file(self.shim_dir.join(f));
+        let old_keys: Vec<String> = manifest
+            .keys()
+            .filter(|k| k.starts_with(&format!("{}/", runtime)))
+            .cloned()
+            .collect();
+        for old_key in old_keys {
+            if let Some(old_files) = manifest.remove(&old_key) {
+                for f in &old_files {
+                    let _ = std::fs::remove_file(self.shim_dir.join(f));
+                }
             }
         }
 
@@ -89,7 +107,7 @@ impl ShimManager for WindowsShimManager {
                 continue;
             }
 
-            let bat_name = format!("{}.bat", filename.to_string_lossy());
+            let bat_name = format!("{}.bat", shim_stem(&filename));
             let bat_path = self.shim_dir.join(&bat_name);
             Self::create_bat_shim(&bat_path, &path)?;
             new_files.push(bat_name);

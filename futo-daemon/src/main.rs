@@ -21,6 +21,21 @@ fn default_data_dir() -> PathBuf {
         .join(".futou")
 }
 
+fn resolve_data_dir<I>(args: I) -> PathBuf
+where
+    I: IntoIterator<Item = String>,
+{
+    let mut args = args.into_iter();
+    while let Some(arg) = args.next() {
+        if arg == "--data-dir" {
+            if let Some(path) = args.next().filter(|path| !path.trim().is_empty()) {
+                return PathBuf::from(path);
+            }
+        }
+    }
+    default_data_dir()
+}
+
 fn load_or_create_config(data_dir: &Path) -> PathBuf {
     let config_path = data_dir.join("config.toml");
     if !config_path.exists() {
@@ -45,7 +60,7 @@ async fn main() {
         )
         .init();
 
-    let data_dir = default_data_dir();
+    let data_dir = resolve_data_dir(std::env::args().skip(1));
     let _config_path = load_or_create_config(&data_dir);
 
     info!("futou daemon starting. Data directory: {:?}", data_dir);
@@ -86,4 +101,17 @@ async fn main() {
     }
 
     info!("Daemon stopped");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::resolve_data_dir;
+    use std::path::PathBuf;
+
+    #[test]
+    fn resolves_configured_data_directory() {
+        let args = ["--data-dir".to_string(), r"D:\SDK".to_string()];
+
+        assert_eq!(resolve_data_dir(args), PathBuf::from(r"D:\SDK"));
+    }
 }

@@ -53,6 +53,7 @@ function App() {
         try {
           await invoke("daemon_status");
           setDaemonRunning(true);
+          await Promise.all([fetchRuntimes(), fetchCatalogue()]);
           return;
         } catch {
           /* still starting */
@@ -65,10 +66,38 @@ function App() {
   }
 
   useEffect(() => {
-    fetchRuntimes();
-    fetchCatalogue();
-    checkDaemon();
-  }, [fetchRuntimes, fetchCatalogue]);
+    let cancelled = false;
+
+    async function startAndLoad() {
+      try {
+        await invoke("daemon_status");
+      } catch {
+        try {
+          await invoke("daemon_start");
+        } catch {
+          if (!cancelled) toast.error(t("daemon.failedStart"));
+          return;
+        }
+      }
+
+      for (let i = 0; i < 10 && !cancelled; i++) {
+        try {
+          await invoke("daemon_status");
+          setDaemonRunning(true);
+          await Promise.all([fetchRuntimes(), fetchCatalogue()]);
+          return;
+        } catch {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
+      }
+      if (!cancelled) toast.error(t("daemon.failedStart"));
+    }
+
+    startAndLoad();
+    return () => {
+      cancelled = true;
+    };
+  }, [fetchRuntimes, fetchCatalogue, t]);
 
   useEffect(() => {
     const interval = setInterval(checkDaemon, 5000);
